@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Agent</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="top"><div class="wrap brand"><span class="mark" aria-hidden="true">R</span> Research Agent</div></header>
+  <main class="wrap">
+    <h1>推理研究工作台</h1>
+    <div class="workspace">
+      <aside class="panel setup">
+        <form id="research">
+          <label for="question">研究问题</label>
+          <textarea id="question" maxlength="2000" rows="6" required>MLX-LM 的前缀缓存能否降低首 token 延迟？请实测，并根据结果决定补测或复测。</textarea>
+          <label for="budget">实验次数上限</label>
+          <select id="budget"><option>1</option><option>2</option><option selected>3</option></select>
+          <button id="start">运行研究</button>
+        </form>
+        <dl class="environment">
+          <div><dt>决策模型</dt><dd>DeepSeek Flash</dd></div>
+          <div><dt>被测服务</dt><dd>MLX-LM · Qwen3-0.6B 4-bit</dd></div>
+          <div><dt>实验工具</dt><dd>前缀缓存开关对照</dd></div>
+        </dl>
+      </aside>
+      <div class="output">
+        <section class="panel">
+          <div class="section-title"><h2>实验轨迹</h2><span id="status" class="status" role="status">待运行</span></div>
+          <p id="hint" class="muted">运行后在这里查看每轮实验的选择依据与实测结果。</p>
+          <div id="events"></div>
+        </section>
+        <section class="panel" id="result" hidden>
+          <div class="section-title"><h2>研究报告</h2><a id="report-link" target="_blank" rel="noopener">查看 Markdown</a></div>
+          <p id="usage" class="muted"></p>
+          <div id="report"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

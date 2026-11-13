@@ -1,0 +1,2 @@
+Upstream: https://github.com/langchain-ai/deepagents
+Commit: 5bbe19db961ff7c0e4db3a7c321c376c6fe302a3

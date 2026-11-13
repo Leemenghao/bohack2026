@@ -1,0 +1,288 @@
+{
+  "summary": {
+    "shared": {
+      "requests_per_arm": 7,
+      "median_ttft_ms_off": 687.26,
+      "median_ttft_ms_on": 106.17,
+      "median_cached_tokens_on": 1509,
+      "matching_texts": 7
+    },
+    "different": {
+      "requests_per_arm": 8,
+      "median_ttft_ms_off": 689.5550000000001,
+      "median_ttft_ms_on": 681.175,
+      "median_cached_tokens_on": 3.0,
+      "matching_texts": 6
+    }
+  },
+  "runs": {
+    "0": {
+      "shared": [
+        {
+          "ttft_ms": 547.0,
+          "elapsed_ms": 718.13,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "The sentence is: \"The forest is a place of beauty and imagination.\""
+        },
+        {
+          "ttft_ms": 1075.21,
+          "elapsed_ms": 1282.73,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 12,
+          "text": "Ocean is a body of water that surrounds the Earth."
+        },
+        {
+          "ttft_ms": 687.26,
+          "elapsed_ms": 836.16,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "Valley is a place in the world, and it is known for its beautiful"
+        },
+        {
+          "ttft_ms": 620.27,
+          "elapsed_ms": 709.5,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 10,
+          "text": "I am writing a sentence about the island."
+        },
+        {
+          "ttft_ms": 569.84,
+          "elapsed_ms": 658.25,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 10,
+          "text": "I am writing a sentence about the desert."
+        },
+        {
+          "ttft_ms": 657.04,
+          "elapsed_ms": 789.15,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "I need to write a sentence about gardening. Let me think. Maybe: \""
+        },
+        {
+          "ttft_ms": 694.5,
+          "elapsed_ms": 817.38,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 13,
+          "text": "The sentence is: \"The river flows from the sea.\""
+        },
+        {
+          "ttft_ms": 695.16,
+          "elapsed_ms": 856.98,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 13,
+          "text": "The sentence is: \"Mountains are beautiful and majestic.\""
+        }
+      ],
+      "different": [
+        {
+          "ttft_ms": 616.72,
+          "elapsed_ms": 781.35,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "In the forest, local inference is a natural process that connects the environment and the"
+        },
+        {
+          "ttft_ms": 708.46,
+          "elapsed_ms": 880.15,
+          "prompt_tokens": 1521,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "Ocean inferences often involve analyzing patterns and relationships between different elements to draw conclusions about"
+        },
+        {
+          "ttft_ms": 779.45,
+          "elapsed_ms": 1032.27,
+          "prompt_tokens": 1521,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "Valley valley valley valley valley valley valley valley valley valley valley valley valley valley valley"
+        },
+        {
+          "ttft_ms": 683.34,
+          "elapsed_ms": 882.33,
+          "prompt_tokens": 1521,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "Island island island island island island island island island island island island island island island"
+        },
+        {
+          "ttft_ms": 695.77,
+          "elapsed_ms": 897.13,
+          "prompt_tokens": 1521,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "I need to write a one-sentence summary about local inference. Let me think"
+        },
+        {
+          "ttft_ms": 720.05,
+          "elapsed_ms": 885.08,
+          "prompt_tokens": 1521,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "A garden is a place where people grow plants and enjoy the beauty of nature."
+        },
+        {
+          "ttft_ms": 638.41,
+          "elapsed_ms": 798.79,
+          "prompt_tokens": 1520,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "The river flows continuously, illustrating the concept of local inference in its natural flow."
+        },
+        {
+          "ttft_ms": 612.59,
+          "elapsed_ms": 762.74,
+          "prompt_tokens": 1521,
+          "cached_tokens": 0,
+          "output_tokens": 16,
+          "text": "The local mountain range is a natural wonder, where the landscape is vast and the"
+        }
+      ]
+    },
+    "8": {
+      "shared": [
+        {
+          "ttft_ms": 372.05,
+          "elapsed_ms": 524.61,
+          "prompt_tokens": 1520,
+          "cached_tokens": 3,
+          "output_tokens": 16,
+          "text": "The sentence is: \"The forest is a place of beauty and imagination.\""
+        },
+        {
+          "ttft_ms": 94.09,
+          "elapsed_ms": 208.03,
+          "prompt_tokens": 1520,
+          "cached_tokens": 1509,
+          "output_tokens": 12,
+          "text": "Ocean is a body of water that surrounds the Earth."
+        },
+        {
+          "ttft_ms": 101.12,
+          "elapsed_ms": 256.77,
+          "prompt_tokens": 1520,
+          "cached_tokens": 1509,
+          "output_tokens": 16,
+          "text": "Valley is a place in the world, and it is known for its beautiful"
+        },
+        {
+          "ttft_ms": 106.17,
+          "elapsed_ms": 189.76,
+          "prompt_tokens": 1520,
+          "cached_tokens": 1509,
+          "output_tokens": 10,
+          "text": "I am writing a sentence about the island."
+        },
+        {
+          "ttft_ms": 112.12,
+          "elapsed_ms": 201.21,
+          "prompt_tokens": 1520,
+          "cached_tokens": 1509,
+          "output_tokens": 10,
+          "text": "I am writing a sentence about the desert."
+        },
+        {
+          "ttft_ms": 131.59,
+          "elapsed_ms": 280.23,
+          "prompt_tokens": 1520,
+          "cached_tokens": 1509,
+          "output_tokens": 16,
+          "text": "I need to write a sentence about gardening. Let me think. Maybe: \""
+        },
+        {
+          "ttft_ms": 110.66,
+          "elapsed_ms": 240.73,
+          "prompt_tokens": 1520,
+          "cached_tokens": 1509,
+          "output_tokens": 13,
+          "text": "The sentence is: \"The river flows from the sea.\""
+        },
+        {
+          "ttft_ms": 103.78,
+          "elapsed_ms": 227.92,
+          "prompt_tokens": 1520,
+          "cached_tokens": 1509,
+          "output_tokens": 13,
+          "text": "The sentence is: \"Mountains are beautiful and majestic.\""
+        }
+      ],
+      "different": [
+        {
+          "ttft_ms": 661.85,
+          "elapsed_ms": 867.59,
+          "prompt_tokens": 1520,
+          "cached_tokens": 3,
+          "output_tokens": 16,
+          "text": "In the forest, local inference is a natural process that connects the environment and the"
+        },
+        {
+          "ttft_ms": 652.33,
+          "elapsed_ms": 797.15,
+          "prompt_tokens": 1521,
+          "cached_tokens": 3,
+          "output_tokens": 16,
+          "text": "Ocean inferences often rely on the principle of local knowledge, where individuals draw conclusions"
+        },
+        {
+          "ttft_ms": 560.9,
+          "elapsed_ms": 693.3,
+          "prompt_tokens": 1521,
+          "cached_tokens": 3,
+          "output_tokens": 16,
+          "text": "Valley valley valley valley valley valley valley valley valley valley valley valley valley valley valley"
+        },
+        {
+          "ttft_ms": 565.16,
+          "elapsed_ms": 696.36,
+          "prompt_tokens": 1521,
+          "cached_tokens": 3,
+          "output_tokens": 16,
+          "text": "Island island island island island island island island island island island island island island island"
+        },
+        {
+          "ttft_ms": 700.5,
+          "elapsed_ms": 847.49,
+          "prompt_tokens": 1521,
+          "cached_tokens": 3,
+          "output_tokens": 16,
+          "text": "I need to write a one-sentence summary about local inference. Let me think"
+        },
+        {
+          "ttft_ms": 840.16,
+          "elapsed_ms": 1068.79,
+          "prompt_tokens": 1521,
+          "cached_tokens": 3,
+          "output_tokens": 16,
+          "text": "A garden is a place where people grow plants and enjoy the beauty of nature."
+        },
+        {
+          "ttft_ms": 750.27,
+          "elapsed_ms": 922.72,
+          "prompt_tokens": 1520,
+          "cached_tokens": 3,
+          "output_tokens": 15,
+          "text": "The river flows continuously, illustrating the concept of local inference in nature."
+        },
+        {
+          "ttft_ms": 750.94,
+          "elapsed_ms": 907.08,
+          "prompt_tokens": 1521,
+          "cached_tokens": 3,
+          "output_tokens": 16,
+          "text": "The local mountain range is a natural wonder, where the landscape is vast and the"
+        }
+      ]
+    }
+  }
+}
