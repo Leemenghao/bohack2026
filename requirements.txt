@@ -1,0 +1,16 @@
+# Research Agent 运行依赖
+# 安装：pip install -r requirements.txt
+# 注意：mlx-lm 只支持 Apple Silicon（macOS），其他平台可跳过最后一行，
+#       但那样只能跑界面与检索，无法执行真实 benchmark。
+
+# Agent 框架：仓库内置源码，含自研的 research 子包（检索 / 抓取 / 证据落盘）
+-e ./vendor/deepagents
+
+# 云端模型：仅用于规划、判断与撰写结论，不参与推理
+langchain>=1.5.0,<2.0.0
+langchain-core>=1.8.0,<2.0.0
+langchain-openai>=1.7.4,<2.0.0
+python-dotenv>=1.0.0
+
+# 本地推理：全部 benchmark 实测都由它在设备上完成
+mlx-lm>=0.32.2

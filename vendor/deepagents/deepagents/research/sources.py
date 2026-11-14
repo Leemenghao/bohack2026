@@ -2,8 +2,6 @@ import re
 from hashlib import sha256
 from urllib.parse import quote, urlsplit
 
-import httpx
-
 
 DATACITE = "https://api.datacite.org/dois"
 TAVILY = "https://api.tavily.com"
@@ -62,6 +60,9 @@ def find_sources(query):
 
 
 def _tavily_request(endpoint, key, payload):
+    # Imported lazily so the local collection works without network deps installed.
+    import httpx
+
     response = httpx.post(
         f"{TAVILY}/{endpoint}",
         headers={"Authorization": f"Bearer {key}"},
@@ -73,6 +74,8 @@ def _tavily_request(endpoint, key, payload):
 
 
 def _datacite_get(url, params=None):
+    import httpx
+
     response = httpx.get(url, params=params, timeout=8)
     response.raise_for_status()
     return response.json()["data"]
