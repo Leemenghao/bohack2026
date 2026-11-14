@@ -57,7 +57,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_data(200, (ROOT / "web" / filename).read_bytes(), content_type)
             return
 
-        match = re.fullmatch(r"/api/runs/([a-f0-9]{12})(?:/(experiment-[a-f0-9]{8}\.json|report\.md))?", path)
+        match = re.fullmatch(
+            r"/api/runs/([a-f0-9]{12})(?:/((?:experiment|search|source)-[a-f0-9]{8}\.json|report\.md))?",
+            path,
+        )
         if match:
             run_id, filename = match.groups()
             if filename:
