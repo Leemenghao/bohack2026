@@ -254,25 +254,25 @@ function experimentTitle(experiment, index) {
   return `实验 ${index + 1} · ${workload}`;
 }
 
-function renderRetrievals(list) {
+function renderRetrievals(groups, fetched = new Set()) {
   const box = $("#retrievals");
-  if (!list.length) {
+  if (!groups.length) {
     box.replaceChildren();
     return;
   }
-  box.replaceChildren(...list.map((item) => {
+  box.replaceChildren(...groups.map((group) => {
     const details = element("details", "", "retrieval");
     const summary = element("summary", "", "retrieval-summary");
     summary.append(
       element("span", "检索来源", "retrieval-label"),
-      element("span", item.query, "retrieval-query"),
-      element("span", `${item.results.length} 条`, "retrieval-count"),
+      element("span", group.query || "未命名查询", "retrieval-query"),
+      element("span", `${group.sources.length} 条`, "retrieval-count"),
     );
     details.append(summary);
-    const list_node = element("ul", "", "retrieval-list");
-    for (const hit of item.results) {
+    const list = element("ul", "", "retrieval-list");
+    for (const hit of group.sources) {
       const entry = element("li");
-      const link = element("a", hit.title);
+      const link = element("a", hit.title || hit.id || "未命名来源");
       if (hit.url) {
         link.href = hit.url;
         link.target = "_blank";
@@ -281,10 +281,13 @@ function renderRetrievals(list) {
         link.href = "#";
         link.addEventListener("click", (event) => event.preventDefault());
       }
-      entry.append(link, element("span", hit.kind || hit.publisher || "", "retrieval-kind"));
-      list_node.append(entry);
+      const meta = element("span", "", "retrieval-meta");
+      if (fetched.has(hit.id)) meta.append(element("span", "已读全文", "retrieval-read"));
+      if (hit.kind) meta.append(element("span", hit.kind, "retrieval-kind"));
+      entry.append(link, meta);
+      list.append(entry);
     }
-    details.append(list_node);
+    details.append(list);
     return details;
   }));
 }
@@ -300,18 +303,35 @@ function selectExperiment(index) {
 
 function renderTimeline(events) {
   experiments = [];
-  const retrievals = [];
+  const searches = [];
+  const fetched = new Set();
   for (const event of events) {
     if (event.type === "started") {
       experiments.push({ ...event, result: null });
     } else if (event.type === "completed") {
       const pending = experiments.find((entry) => !entry.result && entry.workload === event.workload && entry.cache_first === event.cache_first && entry.reason === event.reason);
       if (pending) pending.result = event;
-    } else if (event.type === "retrieval") {
-      retrievals.push(event);
+    } else if (event.type === "source" || event.type === "retrieval") {
+      // Backends emit either one event per source (`source`) or one per query (`retrieval`).
+      const query = event.query || "";
+      let group = searches.find((entry) => entry.query === query);
+      if (!group) {
+        group = { query, sources: [] };
+        searches.push(group);
+      }
+      for (const item of event.results || [event]) {
+        group.sources.push({
+          id: item.source_id || item.id || "",
+          title: item.title || "",
+          url: item.url || "",
+          kind: item.kind || "",
+        });
+      }
+    } else if (event.type === "source_fetched") {
+      if (event.source_id) fetched.add(event.source_id);
     }
   }
-  renderRetrievals(retrievals);
+  renderRetrievals(searches, fetched);
   const timeline = $("#events");
   const focused = [...timeline.children].indexOf(document.activeElement);
   timeline.replaceChildren(...experiments.map((entry, index) => {
