@@ -3,45 +3,96 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Research Agent · 推理研究工作台</title>
+  <meta name="color-scheme" content="dark">
+  <title>Research Agent · 推理实验工作台</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <header class="top"><div class="wrap brand"><span class="mark" aria-hidden="true">R</span> Research Agent <span class="environment">本机 MLX-LM</span></div></header>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12h3.2l2.3-7 3.8 14 2.9-9 1.6 2h4.2"/>
+          </svg>
+        </span>
+        <span class="brand-name">Research Agent</span>
+        <span class="brand-sep" aria-hidden="true">/</span>
+        <span class="brand-sub">推理实验工作台</span>
+      </div>
+      <div class="topbar-meta">
+        <span class="chip">Qwen3-0.6B · 4bit</span>
+        <span class="chip">本机 MLX-LM</span>
+      </div>
+    </div>
+  </header>
+
   <main class="wrap">
-    <h1>推理研究工作台</h1>
-    <form id="research" class="panel">
-      <div class="question-field">
+    <section class="hero">
+      <p class="eyebrow">BoHack 2026 · 推理性能</p>
+      <h1>让 Agent 用实测数据回答<em>它自己的假设</em></h1>
+      <p class="lede">提出一个可检验的问题。Agent 会在本机 MLX-LM 上跑前缀缓存对照实验，依据首 token 延迟、缓存命中与输出一致性，自行决定补测、复测还是结束。</p>
+    </section>
+
+    <form id="research" class="config" aria-label="实验配置">
+      <div class="field question-field">
         <label for="question">研究问题</label>
         <textarea id="question" maxlength="2000" rows="2" required>MLX-LM 的前缀缓存能否降低首 token 延迟？请实测，并根据结果决定补测或复测。</textarea>
       </div>
-      <div class="budget-field">
+      <div class="field budget-field">
         <label for="budget">实验次数上限</label>
-        <select id="budget"><option>1</option><option>2</option><option selected>3</option></select>
+        <div class="select-wrap">
+          <select id="budget"><option>1</option><option>2</option><option selected>3</option></select>
+        </div>
       </div>
-      <button class="primary" id="start">运行研究</button>
+      <button class="primary" id="start" type="submit">
+        <span>运行研究</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h13M13 6l6 6-6 6"/>
+        </svg>
+      </button>
     </form>
+
     <div class="workspace">
       <section class="panel timeline">
-        <div class="section-title"><h2>实验时间线</h2><span id="status" class="status" role="status">待运行</span></div>
+        <div class="panel-head">
+          <h2>实验时间线</h2>
+          <span id="status" class="status" role="status" data-state="idle">待运行</span>
+        </div>
         <p id="context" class="context" hidden></p>
-        <p id="hint" class="muted">发起研究后，在这里查看每轮实验的选择依据。</p>
+        <p id="hint" class="hint muted">发起研究后，每一轮实验的选择依据会出现在这里。</p>
         <div id="events"></div>
       </section>
+
       <section class="panel inspector" aria-label="研究结果">
         <div class="view-bar">
           <button type="button" id="evidence-tab" class="view-button" aria-pressed="true" aria-controls="evidence">证据详情</button>
           <button type="button" id="report-tab" class="view-button" aria-pressed="false" aria-controls="result" disabled>研究报告</button>
         </div>
-        <div id="evidence" class="view"><p class="empty muted">选择一轮实验，查看缓存开关的实测对照。</p></div>
+        <div id="evidence" class="view">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 19V5M4 19h16M8 15l3.2-4.4L14 14l2.8-3.6L19 13"/>
+            </svg>
+            <p>选择左侧任意一轮实验，查看缓存开关的实测对照。</p>
+          </div>
+        </div>
         <div id="result" class="view" hidden>
-          <div class="section-title"><p id="usage" class="muted"></p><a id="report-link" target="_blank" rel="noopener">打开 Markdown 原文 ↗</a></div>
+          <div class="report-head">
+            <p id="usage" class="muted"></p>
+            <a id="report-link" target="_blank" rel="noopener">打开 Markdown 原文 ↗</a>
+          </div>
           <div id="report"></div>
           <div id="report-experiments" class="report-experiments"></div>
         </div>
       </section>
     </div>
   </main>
+
+  <footer class="wrap foot">
+    <span>实测数据来自本机 MLX-LM 基准脚本</span>
+    <span>每次运行生成独立记录与复跑命令</span>
+  </footer>
 </body>
 </html>
