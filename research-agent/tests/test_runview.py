@@ -6,7 +6,7 @@ import unittest
 import uuid
 from pathlib import Path
 
-from runview import build_events, load_run, save_run
+from research_agent.runview import build_events, load_run, save_run
 
 RUNS_ROOT = Path(__file__).resolve().parent / ".runs"
 

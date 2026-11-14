@@ -11,7 +11,7 @@ HISTORY_FIELDS = ("question", "task", "created_at", "status")
 
 def continuation_context(runs_root, parent_id):
     """Read the selected thread only, keeping model context bounded."""
-    from memory import condense
+    from research_agent.memory import condense
 
     turns = []
     seen = set()

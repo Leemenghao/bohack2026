@@ -102,7 +102,7 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
         if task == "kernel":
             source = run_dir / f"candidate-{experiment_id}.py"
             source.write_text(configuration["code"])
-            command = (f".venv/bin/python -m benchmark.row_normalization {shlex.quote(str(source))}"
+            command = (f".venv/bin/python -m research_agent.benchmark.row_normalization {shlex.quote(str(source))}"
                        f" --suite {configuration['suite']}")
         try:
             run_worker([sys.executable, "-m", "research_agent.research.worker", task,
@@ -151,7 +151,7 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
 
     def benchmark_prefix_cache(workload: Literal["shared", "different"], reason: str, cache_first: bool = False) -> dict:
         """Compare cache off and on on shared or different prefixes. Explain the experiment choice."""
-        command = f".venv/bin/python benchmark/prefix_cache.py {CHECKPOINT_PATH} --workload {workload}"
+        command = f".venv/bin/python -m research_agent.benchmark.prefix_cache {CHECKPOINT_PATH} --workload {workload}"
         if cache_first:
             command += " --cache-first"
 
@@ -160,7 +160,7 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
 
     def benchmark_classification(reason: str, split_seed: Literal[42, 43, 44] = 42) -> dict:
         """Compare unweighted and balanced logistic regression using one stratified split."""
-        command = f".venv/bin/python benchmark/imbalanced_classification.py --split-seed {split_seed}"
+        command = f".venv/bin/python -m research_agent.benchmark.imbalanced_classification --split-seed {split_seed}"
         return record({"split_seed": split_seed}, reason, {"split_seed": split_seed}, command)
 
     if task == "kernel":

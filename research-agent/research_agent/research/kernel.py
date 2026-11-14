@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from benchmark.row_normalization import BASELINE, FUNCTIONS, validate_code
-from runview import RUN_ID, read_json, timestamp
+from research_agent.benchmark.row_normalization import BASELINE, FUNCTIONS, validate_code
+from research_agent.runview import RUN_ID, read_json, timestamp
 
 
 def session_workspace(run_dir):

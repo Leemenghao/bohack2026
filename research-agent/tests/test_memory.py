@@ -7,7 +7,7 @@ import unittest
 import uuid
 from pathlib import Path
 
-from memory import MAX_MEMORY_CHARS, condense, list_runs, load_previous, memory_block
+from research_agent.memory import MAX_MEMORY_CHARS, condense, list_runs, load_previous, memory_block
 
 # Fixtures live inside the workspace: some sandboxes deny deleting the system temp
 # directory, which would otherwise turn a passing test into a teardown error.

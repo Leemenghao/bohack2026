@@ -17,13 +17,13 @@ def main():
     result = {}
     try:
         if args.task == "kernel":
-            from benchmark.row_normalization import run_benchmark
+            from research_agent.benchmark.row_normalization import run_benchmark
             result = run_benchmark(**configuration)
         elif args.task == "classification":
-            from benchmark.imbalanced_classification import run_benchmark
+            from research_agent.benchmark.imbalanced_classification import run_benchmark
             result = run_benchmark(configuration["split_seed"])
         else:
-            from benchmark.prefix_cache import run_benchmark
+            from research_agent.benchmark.prefix_cache import run_benchmark
             result = run_benchmark(**configuration)
             result = {"summary": result["summary"][configuration["workload"]], "requests": result["runs"]}
     except Exception as error:

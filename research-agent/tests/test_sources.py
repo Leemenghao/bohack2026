@@ -2,7 +2,7 @@
 
 Run from the project root:
 
-    python -m unittest discover -s tests -v
+    python -m unittest discover -s research-agent/tests -v
 
 No network, no Apple Silicon, no third-party packages: `sources.py` is loaded
 straight from the vendored tree so the tests work in a fresh clone.
@@ -16,7 +16,7 @@ import importlib.util
 import unittest
 from pathlib import Path
 
-SOURCE_FILE = Path(__file__).resolve().parents[1] / "research-agent" / "research_agent" / "research" / "sources.py"
+SOURCE_FILE = Path(__file__).resolve().parents[1] / "research_agent" / "research" / "sources.py"
 spec = importlib.util.spec_from_file_location("research_sources", SOURCE_FILE)
 sources = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sources)

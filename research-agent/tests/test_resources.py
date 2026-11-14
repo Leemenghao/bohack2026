@@ -16,13 +16,13 @@ from langchain_core.outputs import ChatGeneration, LLMResult
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
 
-from archive import build_archive
-from memory import load_previous
+from research_agent.archive import build_archive
+from research_agent.memory import load_previous
 from research_agent import cli
 from research_agent.research.experiments import make_experiment, run_worker
 from research_agent.research.ledger import ResourceCallbacks, ResourceLedger, RunStopped
 from research_agent.research.sources import _deepseek_request
-from runview import load_run
+from research_agent.runview import load_run
 
 
 class ResourceTest(unittest.TestCase):

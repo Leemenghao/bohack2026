@@ -3,7 +3,7 @@
 import sqlite3
 from contextlib import closing
 
-from runview import RUN_ID, load_run
+from research_agent.runview import RUN_ID, load_run
 
 
 SCHEMA = """

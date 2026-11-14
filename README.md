@@ -21,7 +21,7 @@ uv pip install -e ./research-agent
 .venv/bin/python -m research_agent.web_server
 ```
 
-只查看已有历史时，可以从仓库根目录运行 `python3 web_server.py`。
+只查看已有历史时，可以从仓库根目录运行 `.venv/bin/python web/serve.py`。
 
 macOS 上可以用 `bash desktop/build.sh` 生成 `LuLu Research.app`，再双击打开独立窗口。构建需要 Xcode Command Line Tools，应用需要放在已安装依赖的仓库根目录。窗口会启动本地后端并加载同一套网页。模型和在线检索仍使用上面的配置。
 
@@ -50,9 +50,9 @@ macOS 上可以用 `bash desktop/build.sh` 生成 `LuLu Research.app`，再双�
 
 CPU 时间包含实验进程及已回收的子进程；实验内存为最大单进程高水位，不是进程树同时内存总量。宿主 CPU 为运行区间的进程用量，可能包含 HTTP 工作；宿主峰值内存覆盖服务进程整个生命周期。强制终止时未返回的 CPU/内存数据标记未计量，本机电费、GPU 能耗和硬件折旧也不折算成虚构费用。
 
-测试：`.venv/bin/python -m unittest discover -s tests`。
+测试：`.venv/bin/python -m unittest discover -s research-agent/tests`。
 
-研究代码位于 `research-agent/research_agent/`，测速脚本位于 `benchmark/`，网页资源位于 `web/`。报告、检索记录和实测数据保存到 `runs/<run_id>/`。工作台把会话、问答和运行状态存入 `runs/conversations.sqlite3`，启动时导入已有记录。对话可搜索、重命名和归档。「只聊天」按同一会话中的已有资料作答，「运行实验」调用研究工具。重开可回看已保存的进度，进程退出时未完成的轮次会标为中断，可从同一对话重试。
+研究代码位于 `research-agent/research_agent/`，测速脚本位于 `research-agent/research_agent/benchmark/`，网页资源位于 `web/`。报告、检索记录和实测数据保存到 `runs/<run_id>/`。工作台把会话、问答和运行状态存入 `runs/conversations.sqlite3`，启动时导入已有记录。对话可搜索、重命名和归档。「只聊天」按同一会话中的已有资料作答，「运行实验」调用研究工具。重开可回看已保存的进度，进程退出时未完成的轮次会标为中断，可从同一对话重试。
 
 算子优化示例：输入「优化逐行 L2 归一化算子，先测基线，再比较不同实现，复核正确性，并记录可复用的发现」。LuLu 可以生成受限的 NumPy 函数并提交独立进程测评，不能用这项工具安装依赖、读写任意文件或联网。数值检查包含零行、极小数和不同输入规模，报告分别展示正确性和性能。对比对象是逐行 Python 循环基线，不代表胜过优化库。每次执行最多 30 秒，可以取消。数值代码白名单是此任务的限制，并非通用操作系统沙箱。
 

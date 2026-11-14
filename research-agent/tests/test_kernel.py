@@ -2,9 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from benchmark.row_normalization import BASELINE, run_benchmark, validate_code
+from research_agent.benchmark.row_normalization import BASELINE, run_benchmark, validate_code
 from research_agent.research.kernel import session_workspace
-from runview import save_run
+from research_agent.runview import save_run
 
 
 class KernelTest(unittest.TestCase):

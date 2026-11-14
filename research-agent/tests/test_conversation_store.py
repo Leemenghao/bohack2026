@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from conversation_store import ConversationStore
-from runview import save_run
+from research_agent.conversation_store import ConversationStore
+from research_agent.runview import save_run
 
 
 class ConversationStoreTest(unittest.TestCase):

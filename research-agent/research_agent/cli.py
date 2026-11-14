@@ -16,8 +16,8 @@ from research_agent.research.decisions import ExperimentDecisions
 from research_agent.research.experiments import DEFAULT_TASK, TASK_INSTRUCTIONS, make_experiment
 from research_agent.research.tools import make_research_tools
 from research_agent.research.ledger import ResourceCallbacks, ResourceLedger, RunStopped
-from budget import Budget
-from memory import load_previous, memory_block
+from research_agent.budget import Budget
+from research_agent.memory import load_previous, memory_block
 from research_agent.settings import runtime_settings, pricing_for
 from langchain.agents.middleware import ModelCallLimitMiddleware, ToolCallLimitMiddleware, wrap_model_call, wrap_tool_call
 from langchain.agents.middleware.model_call_limit import ModelCallLimitExceededError
