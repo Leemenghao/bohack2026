@@ -254,6 +254,41 @@ function experimentTitle(experiment, index) {
   return `实验 ${index + 1} · ${workload}`;
 }
 
+function renderRetrievals(list) {
+  const box = $("#retrievals");
+  if (!list.length) {
+    box.replaceChildren();
+    return;
+  }
+  box.replaceChildren(...list.map((item) => {
+    const details = element("details", "", "retrieval");
+    const summary = element("summary", "", "retrieval-summary");
+    summary.append(
+      element("span", "检索来源", "retrieval-label"),
+      element("span", item.query, "retrieval-query"),
+      element("span", `${item.results.length} 条`, "retrieval-count"),
+    );
+    details.append(summary);
+    const list_node = element("ul", "", "retrieval-list");
+    for (const hit of item.results) {
+      const entry = element("li");
+      const link = element("a", hit.title);
+      if (hit.url) {
+        link.href = hit.url;
+        link.target = "_blank";
+        link.rel = "noopener";
+      } else {
+        link.href = "#";
+        link.addEventListener("click", (event) => event.preventDefault());
+      }
+      entry.append(link, element("span", hit.kind || hit.publisher || "", "retrieval-kind"));
+      list_node.append(entry);
+    }
+    details.append(list_node);
+    return details;
+  }));
+}
+
 function selectExperiment(index) {
   selected = index;
   for (const [position, button] of [...$("#events").children].entries()) {
@@ -265,14 +300,18 @@ function selectExperiment(index) {
 
 function renderTimeline(events) {
   experiments = [];
+  const retrievals = [];
   for (const event of events) {
     if (event.type === "started") {
       experiments.push({ ...event, result: null });
     } else if (event.type === "completed") {
       const pending = experiments.find((entry) => !entry.result && entry.workload === event.workload && entry.cache_first === event.cache_first && entry.reason === event.reason);
       if (pending) pending.result = event;
+    } else if (event.type === "retrieval") {
+      retrievals.push(event);
     }
   }
+  renderRetrievals(retrievals);
   const timeline = $("#events");
   const focused = [...timeline.children].indexOf(document.activeElement);
   timeline.replaceChildren(...experiments.map((entry, index) => {
