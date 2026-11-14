@@ -1,65 +1,104 @@
-# BoHack 2026 LuLu Research
+<div align=center>
+<img src=desktop/assets/lulu.png width=92 alt=LuLu>
 
-Agent 会检索资料、提出假设、运行本机实验，并生成带引用、原始记录和复跑命令的报告。可研究 MLX 前缀缓存，或比较不平衡表格分类中类别加权带来的召回率和精确率变化。
+# LuLu Research
 
-在仓库根目录用 Python 3.12 和 uv 安装。分类实验使用固定种子生成的合成数据，在 CPU 上运行。
+### 让每一个研究判断，都有证据可查
 
-```bash
-uv venv --python 3.12
-uv pip install -e ./research-agent
+一个在 Mac 上工作的科研 Agent 工作台。提出问题，观察实验，在同一会话里继续研究。
+
+**中文** · [English](README.en.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+
+[![MIT](https://img.shields.io/badge/license-MIT-496f60)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12-667d8d)](research-agent/pyproject.toml)
+[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-9a866d)](desktop)
+
+</div>
+
+![LuLu 的研究对话与实验详情](web/assets/workbench.png)
+
+## 从问题走到证据
+
+LuLu 将资料检索、假设、实验、验证和修正放进一条可追溯的研究过程。你可以查看每次测量、继续追问，也可以让它根据剩余预算决定下一步。
+
+- **看得见的研究**　对话、实验节点与报告并排展示，原始记录在应用内阅读。
+- **算得清的用量**　记录模型 token、人民币估算费用、检索请求、实验耗时、CPU 时间与峰值内存。
+- **有边界的执行**　模型生成的 Python 与算子候选在 macOS 沙箱运行，文件写入限定在本会话工作区。
+- **可以复用的经验**　每轮成功后尝试生成摘要，计入模型用量。你决定是否允许其他会话检索摘要并只读查证。
+
+```text
+研究问题 → 规划与证据 → 提出假设 → 实验与验证 → 报告与会话摘要
+                                ↑       ↓
+                                └─ 修正 ─┘
 ```
 
-运行 MLX 实验需要 Apple Silicon Mac。用 `uv pip install mlx-lm==0.32.2` 安装 MLX-LM，并把 Qwen3-0.6B-4bit 的 MLX 权重放到 `models/Qwen3-0.6B-4bit/`。模型默认使用 DeepSeek，搜索和抓取使用 DeepSeek Search/Fetch。未配置设置页时，会读取项目 `.env` 的 `DEEPSEEK_API_KEY`。
+## 先跑一个小问题
 
-侧栏「设置」可分别填写模型的 OpenAI 兼容 Base URL、模型 ID、API Key，以及搜索工具的 DeepSeek Search/Fetch 兼容地址与 Key。AI Ping 预设填入 `https://aiping.cn/api/v1`，模型 ID 需按服务商填写；保存时可转存 `.env` 中的 `AIPING_API_KEY`。搜索独立使用自己的连接，不会随模型中转站切换。此页不验证第三方模型是否支持所需工具调用。
+当前提供三个实验场景。
 
-连接元数据保存在 `~/Library/Application Support/LuLu Research/settings.json`，密钥使用 macOS 钥匙串，按服务类别和完整端点绑定；更改地址不会把旧密钥发送到新地址。接口只返回配置状态，不返回密钥。保存时转存匹配地址的环境密钥，原 `.env` 不会自动删除；要彻底去掉明文副本，确认新连接可用后手动移除原值。新设置从下一轮生效，运行中的研究保留启动时的连接及单价快照。
+| 场景 | 研究内容 | 执行条件 |
+| --- | --- | --- |
+| CPU 算子优化 | 生成逐行 L2 归一化候选，对比循环基线并复核数值 | Mac，无需下载模型权重 |
+| 不平衡分类 | 比较类别加权的召回率、精确率、F1 和误报 | CPU，固定种子的合成数据 |
+| MLX 前缀缓存 | 比较缓存配置与首 token 延迟 | Apple Silicon、MLX-LM 与本地权重 |
 
-从仓库根目录启动 Web 服务，并打开 `http://127.0.0.1:8766/`。输入研究问题即可开始。涉及分类、类别加权等关键词的问题会运行表格分类实验，含算子、归一化或 kernel 的问题进入 CPU 算子优化，其余问题默认使用 MLX 前缀缓存实验。本地实验不设固定次数上限。「运行设置」可填写人民币费用阈值，留空表示不设金额阈值。
+可以从这段问题开始。
+
+> 优化逐行 L2 归一化算子。先测基线，再比较候选，在另一组输入上复核正确性。说明加速幅度、适用范围和复跑方法。
+
+加速比的参照是本项目的循环基线，不代表超越优化库。沙箱 Python 输出也不等同于经过固定 benchmark 验证的结论。
+
+## 在 Mac 上启动
+
+准备 Python 3.12 和 [uv](https://docs.astral.sh/uv/)。在仓库根目录执行。
 
 ```bash
+git clone https://github.com/Leemenghao/bohack2026.git
+cd bohack2026
+uv venv --python 3.12
+uv pip install -e ./research-agent
 .venv/bin/python -m research_agent.web_server
 ```
 
-只查看已有历史时，可以从仓库根目录运行 `.venv/bin/python web/serve.py`。
+打开 [本地工作台](http://127.0.0.1:8766)。在侧栏设置中分别配置模型与资料检索连接。模型需要支持 OpenAI 兼容的工具调用接口，检索使用 DeepSeek Search / Fetch 协议。密钥保存到 macOS 钥匙串。
 
-macOS 上可以用 `bash desktop/build.sh` 生成 `LuLu Research.app`，再双击打开独立窗口。构建需要 Xcode Command Line Tools，应用需要放在已安装依赖的仓库根目录。窗口会启动本地后端并加载同一套网页。模型和在线检索仍使用上面的配置。
-
-点击左侧「新建研究」返回提问页，点击历史记录可查看资料、实验和报告。历史保存在本地 `runs/`，重开窗口后可继续查看。退出时尚未完成的研究会显示为「已中断」。
-
-前端通过 `GET /api/runs` 读取 `{"runs": [...]}` 历史列表，通过 `GET /api/runs/<id>` 读取单次研究的事件、状态和报告。报告页可下载整轮产物，包含已保存的时间线、来源、实验数据和 `resources.json` 资源账本。`POST /api/runs/<id>/cancel` 请求停止；`GET /api/runs/<id>/resources.json` 读取账本。旧前端传入的 `max_experiments` 会被忽略。
-
-也可以直接从命令行运行。
+需要独立窗口时，安装 Xcode Command Line Tools 后构建应用。
 
 ```bash
-.venv/bin/python -m research_agent.cli "MLX 中共享长前缀能否降低首 token 延迟？"
-.venv/bin/python -m research_agent.cli --task classification "类别加权能否提高少数类召回率？"
+bash desktop/build.sh
 ```
 
-云端模型调用默认最多 15 次，可用 CLI 的 `--cloud-budget` 调整；搜索和抓取各最多两次。这些云端保护仍保留，本地实验次数不再受独立上限限制。CLI 可用 `--cost-budget 0.5` 设置人民币费用阈值，用 `--no-memory` 跳过上一轮研究摘要。
+打开仓库根目录生成的 LuLu Research.app。当前应用依赖这个检出目录与 Python 环境，尚不是独立分发安装包。
 
-完成每轮本地实验后，Agent 可以根据实测、证据缺口和剩余预算选择复测、换一种验证配置或结束。同一次模型调用给出决定和补测参数，程序复核剩余预算后直接运行实验。预算偏紧时优先保留一次报告调用。预留金额基于最近一次输入 token 和输出上限估算。工作台时间线和 `summary.json` 记录决定、理由、实验 ID 和当时的预算。使用 CLI 的 `--baseline` 可运行原有流程作为对照。
+## 清楚地保存每一步
 
-资源账本逐次落盘，记录模型（包括继承调用配置的子 Agent）的用途、输入输出及缓存 token、耗时和估算费用；搜索/抓取请求与计费次数；本地实验的配置、结果、失败、重试、CPU 时间和最大单进程峰值内存。按研究阶段汇总费用，并保存价格版本。当前尚未启用子 Agent 分工或自适应模型路由。
+| 目录 | 内容 |
+| --- | --- |
+| `web/` | 页面、样式与前端交互 |
+| `desktop/` | macOS 窗口与应用图标 |
+| `research-agent/` | 后端、Agent、实验工具、测试与开发说明 |
+| `runs/` | 本机会话索引、报告、证据与资源账本，不提交到 Git |
 
-金额使用人民币，DeepSeek 官方连接暂按 **2026-11-14 高峰刊例价**估算；其他模型连接可在设置页填写输入、输出、缓存命中的每百万 token 单价，否则价格记为未知，不套用官方价格。自定义搜索端点费用也记为未知。费用合计只含已知部分，不是实际扣款；未配置单价时无法准确按人民币控制预算。金额阈值在新动作开始前检查，已发出的请求仍会结算，因此可能超出阈值；它不是预扣款式硬上限。
+会话共享工作区位于 `runs/<session_id>/workspace/`。各轮证据保存在 `runs/<run_id>/`，SQLite 将它们关联起来。共享默认关闭，右键会话打开摘要即可管理。归档或关闭共享会阻止后续跨会话读取，已经读入其他会话的内容不会自动撤回。
 
-对话中的「用量详情」打开独立用量面板，可切换同一会话的轮次，查看费用、token、耗时及每次实验的 CPU 时间、峰值内存和执行位置。模型和检索调用按条列出；当前不把模型 token 强行分摊到实验，GPU 时间尚未计量。旧记录缺少的位置字段会显示未记录。原始 JSON 账本仍可下载。
+## 当前边界
 
-单次实验最长 180 秒，连续三次实验失败/超时后停止研究；成功一次会重置连续失败计数。页面的「停止研究」会终止本地实验进程组；进行中的云端请求会等待返回或超时，再保存可获得的用量。取消、失败和超时都保留记录及部分报告，不作为下一轮的成功研究记忆。
+这是一个持续迭代的本机研究工作台。模型和检索仍需在线 API。生成代码使用 macOS Seatbelt，执行最长 30 秒，禁用网络和宿主密钥访问。固定分类与 MLX 工具由可信后端运行，不属于通用代码沙箱。
 
-CPU 时间包含实验进程及已回收的子进程；实验内存为最大单进程高水位，不是进程树同时内存总量。宿主 CPU 为运行区间的进程用量，可能包含 HTTP 工作；宿主峰值内存覆盖服务进程整个生命周期。强制终止时未返回的 CPU/内存数据标记未计量，本机电费、GPU 能耗和硬件折旧也不折算成虚构费用。
+费用是已知价格部分的估算，不是实际账单或硬性扣款上限。GPU 时间尚未计量。SSH 执行、云端同步、自动模型路由和跨平台沙箱尚未接入。
 
-测试：`.venv/bin/python -m unittest discover -s research-agent/tests`。
+[开发与配置说明](research-agent/docs/development.md) · [后端工具结构](research-agent/research_agent/research/README.md)
 
-研究代码位于 `research-agent/research_agent/`，测速脚本位于 `research-agent/research_agent/benchmark/`，网页资源位于 `web/`。报告、检索记录和实测数据保存到 `runs/<run_id>/`。工作台把会话、问答和运行状态存入 `runs/conversations.sqlite3`，启动时导入已有记录。对话可搜索、重命名和归档。「只聊天」按同一会话中的已有资料作答，「运行实验」调用研究工具。重开可回看已保存的进度，进程退出时未完成的轮次会标为中断，可从同一对话重试。
+## 一起开发
 
-算子优化示例：输入「优化逐行 L2 归一化算子，先测基线，再比较不同实现，复核正确性，并记录可复用的发现」。LuLu 可以生成受限的 NumPy 函数并提交独立进程测评，不能用这项工具安装依赖、读写任意文件或联网。数值检查包含零行、极小数和不同输入规模，报告分别展示正确性和性能。对比对象是逐行 Python 循环基线，不代表胜过优化库。每次执行最多 30 秒，可以取消。数值代码白名单是此任务的限制，并非通用操作系统沙箱。
+在功能分支上做小步提交，验证通过后发起到 main 的 PR。避免直接覆盖队友的分支。
 
-新算子会话的共享工作目录是首轮的 `runs/<session_id>/workspace/`，存放最新候选索引和模型提炼的会话记忆；各轮不可变的候选代码、实验和报告继续保存在 `runs/<run_id>/`，SQLite 关联它们。现有历史无需迁移。模型自行判断是否保存成功规律、失败教训或适用边界，每条记忆必须引用本轮实验，并标记为未经人工审核。下一轮 inspect_kernel_workspace 可读取本会话记忆；目前没有全局记忆的自动写入或提升功能。现阶段共用项目的 Python 环境，不为每轮复制模型和依赖；如以后允许安装专用依赖，应在会话工作目录里建环境。
+```bash
+.venv/bin/python -m unittest discover -s research-agent/tests
+```
 
-右键会话条目可重命名，右侧归档按钮收起会话；搜索浮层的「已归档」中可以恢复。
+## 致谢与许可
 
-下一步的权限与跨会话设计（尚未实现）：每个会话独立工作区，其他会话通过摘要索引只读检索，再按需打开证据。摘要由模型更新，包含目标、已验证结论、失败与限制、产物位置和更新时间；共享范围由用户控制。通用代码执行应在隔离执行器内进行，本机、SSH 和云端执行器使用同一套产物与用量接口。工作目录不是安全沙箱；通用执行器不应获得宿主环境变量、钥匙串或其他会话的写权限。目前仍是本机受限数值执行，没有 SSH、云端同步或完整操作系统沙箱。
+LuLu 基于 [LangChain Deep Agents](https://github.com/langchain-ai/deepagents) 修改。项目首页的组织方式参考了 [GPT Researcher](https://github.com/assafelovic/gpt-researcher) 与 [DeerFlow](https://github.com/bytedance/deer-flow)。
 
-项目基于 [LangChain Deep Agents](https://github.com/langchain-ai/deepagents) 修改，并按 [MIT 许可证](LICENSE)发布。
+按 [MIT 许可证](LICENSE)发布，保留上游版权声明。
