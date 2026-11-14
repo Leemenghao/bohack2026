@@ -77,6 +77,9 @@ python web_server.py --port 8766
 | `search-*.json` | 一次检索的查询与命中来源 |
 | `source-*.json` | 已读取的论文摘要或网页正文 |
 
+点击「下载全部产物 ↓」可以把 `runs/<id>/` 下的报告、用量与请求级记录打包下载
+（`GET /api/runs/<id>/export`），便于离线核对。
+
 ## 测试
 
 ```bash

@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from research_agent import ROOT, run_research
+from archive import build_archive
 
 ASSETS = {
     "/": ("index.html", "text/html"),
@@ -57,6 +58,23 @@ class Handler(BaseHTTPRequestHandler):
         if path in ASSETS:
             filename, content_type = ASSETS[path]
             self.send_data(200, (ROOT / "web" / filename).read_bytes(), content_type)
+            return
+
+        export_match = re.fullmatch(r"/api/runs/([a-f0-9]{12})/export", path)
+        if export_match:
+            run_id = export_match.group(1)
+            try:
+                payload = build_archive(ROOT / "runs" / run_id, run_id)
+            except FileNotFoundError:
+                self.send_json(404, {"error": "该运行还没有可导出的产物。"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition", f'attachment; filename="run-{run_id}.zip"')
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(payload)
             return
 
         match = re.fullmatch(

@@ -564,6 +564,7 @@ function renderReport(result) {
   const { input_tokens, output_tokens } = result.usage;
   $("#usage").textContent = `${number.format(result.elapsed_seconds)} 秒 · 输入 ${number.format(input_tokens)} token · 输出 ${number.format(output_tokens)} token`;
   $("#report-link").href = `/api/runs/${activeRun}/report.md`;
+  $("#export-link").href = `/api/runs/${activeRun}/export`;
   $("#report").replaceChildren(...renderMarkdown(result.report));
   $("#report-experiments").replaceChildren(...experiments.flatMap((entry, index) => {
     if (!entry.result) return [];

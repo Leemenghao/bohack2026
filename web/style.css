@@ -627,6 +627,7 @@ pre {
   border-bottom: 1px solid var(--line);
 }
 #usage { margin: 0; color: var(--text-dim); font-family: var(--mono); font-size: var(--text-xs); }
+.report-links { display: flex; align-items: center; gap: 12px; }
 #report { max-width: 78ch; min-width: 0; color: var(--text-dim); font-size: var(--text-sm); line-height: 1.72; overflow-wrap: anywhere; }
 #report h3 { margin: 1.5em 0 0.45em; padding-bottom: 0.3em; border-bottom: 1px solid var(--line); color: var(--text); font-size: var(--text-base); font-weight: 700; }
 #report h3:first-child { margin-top: 0; }
