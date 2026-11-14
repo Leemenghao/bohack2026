@@ -12,6 +12,48 @@ function element(tag, text = "", className = "") {
   return node;
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function icon(pathData) {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.7");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", pathData);
+  svg.append(path);
+  return svg;
+}
+
+function emptyState(text) {
+  const box = element("div", "", "empty-state");
+  box.append(icon("M4 19V5M4 19h16M8 15l3.2-4.4L14 14l2.8-3.6L19 13"), element("p", text));
+  return box;
+}
+
+function statCard(label, value, unit) {
+  const card = element("div", "", "stat");
+  const valueNode = element("div", "", "stat-value");
+  valueNode.append(document.createTextNode(value));
+  if (unit) valueNode.append(element("small", unit));
+  card.append(element("div", label, "stat-label"), valueNode);
+  return card;
+}
+
+async function copyText(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+    button.textContent = "已复制";
+  } catch {
+    button.textContent = "复制失败";
+  }
+  setTimeout(() => { button.textContent = "复制"; }, 1600);
+}
+
 async function request(url, options) {
   const response = await fetch(url, options);
   const data = await response.json();
@@ -62,9 +104,13 @@ function renderTimeline(events) {
     const button = element("button", "", "experiment");
     button.type = "button";
     button.setAttribute("aria-pressed", String(index === selected));
-    const title = element("span", experimentTitle(entry, index), "experiment-title");
-    title.append(element("small", entry.result ? "已完成" : runStatus === "failed" ? "未完成" : "测量中"));
-    button.append(title, element("span", entry.reason, "experiment-reason"));
+    const head = element("span", "", "experiment-head");
+    head.append(
+      element("span", String(index + 1).padStart(2, "0"), "experiment-index"),
+      element("span", experimentTitle(entry, index), "experiment-title"),
+      element("span", entry.result ? "已完成" : runStatus === "failed" ? "未完成" : "测量中", "experiment-state"),
+    );
+    button.append(head, element("span", entry.reason, "experiment-reason"));
     button.addEventListener("click", () => selectExperiment(index));
     return button;
   }));
@@ -76,11 +122,14 @@ function renderEvidence() {
   const panel = $("#evidence");
   const experiment = experiments[selected];
   if (!experiment) {
-    panel.replaceChildren(element("p", "选择一轮实验，查看缓存开关的实测对照。", "empty muted"));
+    panel.replaceChildren(emptyState("选择左侧任意一轮实验，查看缓存开关的实测对照。"));
     return;
   }
+
   const order = experiment.cache_first ? "先开后关" : "先关后开";
-  panel.replaceChildren(element("h3", `${experimentTitle(experiment, selected)} · ${order}`), element("p", experiment.reason, "reason"));
+  const head = element("div", "", "evidence-head");
+  head.append(element("h3", experimentTitle(experiment, selected)), element("span", order, "tag"));
+  panel.replaceChildren(head, element("p", experiment.reason, "reason"));
   if (!experiment.result) {
     panel.append(element("p", runStatus === "failed" ? "该实验没有返回结果。" : "正在测量首 token 延迟…", "muted"));
     return;
@@ -88,8 +137,15 @@ function renderEvidence() {
 
   const evidence = experiment.result;
   const stats = evidence.summary;
+  const drop = 1 - stats.median_ttft_ms_on / Math.max(stats.median_ttft_ms_off, 1);
+
   const chart = element("figure", "", "chart");
-  chart.append(element("h4", "首 token 延迟（TTFT 中位数）"));
+  const chartHead = element("div", "", "chart-head");
+  chartHead.append(
+    element("h4", "首 token 延迟 · TTFT 中位数"),
+    element("span", `${drop >= 0 ? "↓" : "↑"} ${Math.abs(drop * 100).toFixed(1)}%`, drop >= 0 ? "delta" : "delta up"),
+  );
+  chart.append(chartHead);
   const maximum = Math.max(stats.median_ttft_ms_off, stats.median_ttft_ms_on, 1);
   for (const [label, value, style] of [
     ["关缓存", stats.median_ttft_ms_off, ""],
@@ -101,27 +157,37 @@ function renderEvidence() {
     const bar = element("div", "", `bar ${style}`);
     bar.style.width = `${(value / maximum) * 100}%`;
     track.append(bar);
-    row.append(element("span", label), track, element("strong", `${number.format(value)} ms`));
+    row.append(element("span", label, "bar-label"), track, element("span", `${number.format(value)} ms`, "bar-value"));
     chart.append(row);
   }
 
-  const metrics = element("dl", "", "metrics");
-  for (const [label, value] of [
-    ["缓存命中中位数", `${number.format(stats.median_cached_tokens_on)} token`],
-    ["输出文本一致", `${stats.matching_texts} / ${stats.requests_per_arm} 条`],
-  ]) {
-    const metric = element("div");
-    metric.append(element("dt", label), element("dd", value));
-    metrics.append(metric);
-  }
+  const diff = stats.median_ttft_ms_on - stats.median_ttft_ms_off;
+  const metrics = element("div", "", "stats");
+  metrics.append(
+    statCard("缓存命中（中位数）", number.format(stats.median_cached_tokens_on), "token"),
+    statCard("输出文本一致", `${stats.matching_texts} / ${stats.requests_per_arm}`, "条"),
+    statCard("每组请求数", String(stats.requests_per_arm), "条"),
+    statCard("TTFT 差值", `${diff <= 0 ? "−" : "+"}${number.format(Math.abs(diff))}`, "ms"),
+  );
 
   const raw = element("a", "打开原始实验记录 ↗");
   raw.href = `/api/runs/${activeRun}/${evidence.artifact.split("/").pop()}`;
   raw.target = "_blank";
   raw.rel = "noopener";
+  const actions = element("div", "", "link-row");
+  actions.append(raw);
+
   const replay = element("details");
-  replay.append(element("summary", "复跑命令"), element("pre", evidence.reproduce_from_project_root));
-  panel.append(chart, metrics, raw, replay);
+  replay.append(element("summary", "复跑命令"));
+  const shell = element("div", "", "pre-wrap");
+  shell.append(element("pre", evidence.reproduce_from_project_root));
+  const copy = element("button", "复制", "copy");
+  copy.type = "button";
+  copy.addEventListener("click", () => copyText(evidence.reproduce_from_project_root, copy));
+  shell.append(copy);
+  replay.append(shell);
+
+  panel.append(chart, metrics, actions, replay);
 }
 
 function appendInline(node, text) {
