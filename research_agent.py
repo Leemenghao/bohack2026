@@ -21,6 +21,7 @@ from langchain_openai import ChatOpenAI
 
 from benchmark.prefix_cache import run_benchmark
 from budget import Budget
+from memory import load_previous, memory_block
 
 ROOT = Path(__file__).resolve().parent
 CHECKPOINT = ROOT / "models" / "Qwen3-0.6B-4bit"
@@ -43,7 +44,7 @@ source_id 用 fetch_source 读取，再提出可检验的假设。用 [source_id
 """
 
 
-def build_agent(model, run_dir, max_experiments=3, on_event=None, budget=None):
+def build_agent(model, run_dir, max_experiments=3, on_event=None, budget=None, memory=""):
     budget = budget or Budget()
     tavily_key = os.getenv("TAVILY_API_KEY", "").strip()
     evidence_tools = make_research_tools(run_dir, tavily_key, on_event)
@@ -98,6 +99,7 @@ def build_agent(model, run_dir, max_experiments=3, on_event=None, budget=None):
             + "\n\n【云端预算】"
             + budget.prompt_line()
             + "每次调用云端都会消耗预算，请把调用留给真正需要的判断。"
+            + (f"\n\n{memory}" if memory else "")
         ),
         middleware=[
             ModelCallLimitMiddleware(run_limit=budget.calls),
@@ -109,7 +111,7 @@ def build_agent(model, run_dir, max_experiments=3, on_event=None, budget=None):
     )
 
 
-def run_research(question, run_dir, max_experiments=3, on_event=None, cloud_budget=8, token_budget=0):
+def run_research(question, run_dir, max_experiments=3, on_event=None, cloud_budget=8, token_budget=0, use_memory=True):
     load_dotenv(ROOT / ".env")
     key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     if not key:
@@ -118,6 +120,11 @@ def run_research(question, run_dir, max_experiments=3, on_event=None, cloud_budg
     budget = Budget(calls=cloud_budget, tokens=token_budget)
     if on_event:
         on_event({"type": "budget", **budget.snapshot()})
+
+    previous = load_previous(ROOT / "runs", exclude=run_dir) if use_memory else None
+    memory = memory_block(previous)
+    if previous and on_event:
+        on_event({"type": "memory", "run_id": previous["run_id"]})
 
     model = ChatOpenAI(
         model=MODEL,
@@ -130,7 +137,7 @@ def run_research(question, run_dir, max_experiments=3, on_event=None, cloud_budg
         max_retries=0,
     )
     run_dir.mkdir(parents=True)
-    agent = build_agent(model, run_dir, max_experiments, on_event, budget)
+    agent = build_agent(model, run_dir, max_experiments, on_event, budget, memory)
     started = time.monotonic()
     result = agent.invoke({"messages": [{"role": "user", "content": question}]})
     report = result["messages"][-1].text
@@ -178,6 +185,7 @@ def run_research(question, run_dir, max_experiments=3, on_event=None, cloud_budg
         "usage": usage,
         "elapsed_seconds": round(time.monotonic() - started, 2),
         "budget": budget.snapshot(),
+        "memory_from": previous["run_id"] if previous else None,
     }
     (run_dir / "report.md").write_text(report + "\n")
     (run_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2))
@@ -189,6 +197,7 @@ def main():
     parser.add_argument("question")
     parser.add_argument("--cloud-budget", type=int, default=8, help="单次研究允许的云端调用次数上限")
     parser.add_argument("--token-budget", type=int, default=0, help="单次研究的 token 预算，0 表示不限")
+    parser.add_argument("--no-memory", action="store_true", help="不读取上一次运行的结论")
     args = parser.parse_args()
     run_dir = ROOT / "runs" / uuid4().hex[:12]
     try:
@@ -197,6 +206,7 @@ def main():
             run_dir,
             cloud_budget=args.cloud_budget,
             token_budget=args.token_budget,
+            use_memory=not args.no_memory,
         )
     except ValueError as error:
         parser.exit(2, f"{error}\n")

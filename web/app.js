@@ -11,11 +11,13 @@ let activeRun = "";
 let runStatus = "idle";
 let runBudget = 3;
 let cloudBudgetLimit = 0;
+let memoryRunId = "";
 let runStartedLabel = "";
 
 function renderContext() {
   const parts = [`预算 ${runBudget} 次`, `模型 ${MODEL}`];
   if (cloudBudgetLimit) parts.push(`云端 ≤ ${cloudBudgetLimit} 次`);
+  if (memoryRunId) parts.push(`参考上次 ${memoryRunId}`);
   if (runStartedLabel) parts.push(`开始 ${runStartedLabel}`);
   $("#context").textContent = parts.join(" · ");
 }
@@ -341,6 +343,9 @@ function renderTimeline(events) {
     } else if (event.type === "budget") {
       cloudBudgetLimit = Number(event.limit_calls) || 0;
       renderContext();
+    } else if (event.type === "memory") {
+      memoryRunId = event.run_id || "";
+      renderContext();
     }
   }
   renderRetrievals(searches, fetched);
@@ -606,6 +611,7 @@ async function beginRun(question, budget) {
   if (!question) return;
   runBudget = budget;
   cloudBudgetLimit = 0;
+  memoryRunId = "";
   runStartedLabel = timeLabel(Date.now());
   activeRun = "";
   experiments = [];

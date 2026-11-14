@@ -47,6 +47,14 @@ python research_agent.py "…" --cloud-budget 5 --token-budget 20000
 
 预算耗尽时，Agent 必须用已有证据收尾，并在报告末尾追加「运行预算」小节说明消耗情况。
 
+## 跨运行记忆
+
+每次运行开始前，会自动读取**最近一次**已完成运行的报告摘要，作为「上一次研究的结论」注入提示词，
+并在报告里注明它的运行 id。它只是参照，Agent 若重复同一实验需要说明理由。
+
+- 关闭：`python research_agent.py "…" --no-memory`（或 `run_research(..., use_memory=False)`）
+- 记录在 `summary.json` 的 `memory_from` 字段
+
 ## 起界面
 
 ```bash
