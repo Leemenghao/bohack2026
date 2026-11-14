@@ -10,6 +10,8 @@
   <script src="/app.js" defer></script>
   <script src="/preferences.js" defer></script>
   <script src="/usage.js" defer></script>
+  <script src="/artifacts.js" defer></script>
+  <script src="/sessions.js" defer></script>
 </head>
 <body>
   <noscript><p class="noscript">本工作台需要启用 JavaScript 才能发起实验并展示结果，请开启后刷新页面。</p></noscript>
@@ -75,7 +77,7 @@
           <div class="progress-track" aria-hidden="true"><i id="progress-fill"></i></div>
           <span id="progress-text" class="progress-text"></span>
         </div>
-        <div id="conversation" class="conversation" aria-label="研究对话记录" tabindex="0">
+        <div id="conversation" class="conversation" aria-label="研究对话记录">
           <div id="conversation-turns"></div>
           <div id="run-question" class="markdown-content"></div>
           <ul id="run-attachments" class="attachments" aria-label="本轮附件"></ul>
@@ -143,13 +145,19 @@
     </div>
     <div class="composer-settings" popover>
       <h3>本轮设置</h3>
-      <label>运行方式
-        <select><option value="research">运行研究</option><option value="chat">只聊天</option></select>
-      </label>
+      <div class="mode-field"><span>工作方式</span>
+        <input class="mode-value" type="hidden" value="research">
+        <details class="mode-picker"><summary>自主研究</summary>
+          <div class="mode-options" role="listbox" aria-label="工作方式">
+            <button type="button" role="option" data-mode="chat" aria-selected="false">聊天<small>讨论问题，解读已有结果</small></button>
+            <button type="button" role="option" data-mode="research" aria-selected="true">自主研究<small>查资料、做实验并验证结论</small></button>
+          </div>
+        </details>
+      </div>
       <label>人民币费用阈值
         <input type="number" min="0.001" step="any" placeholder="可留空">
       </label>
-      <p>高峰价估算；已发出的请求仍会结算。本地实验次数不限。</p>
+      <p>按已配置的单价估算，已发出的请求仍会结算。实验次数不限。</p>
       <p>文本附件随本轮问题发给模型，并写入本机运行记录和导出的产物。</p>
     </div>
   </template>
@@ -197,9 +205,24 @@
     <div id="usage-content"></div>
     <div class="dialog-actions"><a id="usage-download" class="view-button" download="resources.json" hidden>下载原始账本</a><button type="button" id="refresh-usage" class="view-button">刷新</button></div>
   </dialog>
+  <dialog id="artifact-dialog" class="app-dialog artifact-dialog" aria-labelledby="artifact-title">
+    <div class="dialog-heading"><div><h2 id="artifact-title">原始记录</h2><p id="artifact-filename" class="muted"></p></div><button type="button" class="icon-button close-dialog" aria-label="关闭记录">✕</button></div>
+    <div class="artifact-toolbar"><button type="button" id="artifact-reading" class="view-button" aria-pressed="true">阅读</button><button type="button" id="artifact-raw" class="view-button" aria-pressed="false">原文</button><a id="artifact-download" class="view-button" download>下载文件</a></div>
+    <div id="artifact-content" class="markdown-content"></div>
+  </dialog>
   <div id="session-context" popover="auto">
     <button type="button" id="rename-session" class="view-button">重命名</button>
+    <button type="button" id="view-session-summary" class="view-button">会话摘要</button>
   </div>
+  <dialog id="session-summary-dialog" class="app-dialog" aria-labelledby="session-summary-title">
+    <div class="dialog-heading"><h2 id="session-summary-title">会话摘要</h2><button type="button" class="icon-button close-dialog" aria-label="关闭会话摘要">✕</button></div>
+    <p id="session-summary-meta" class="muted"></p>
+    <div id="session-summary-content" class="markdown-content"></div>
+    <label class="session-share"><input type="checkbox" id="session-share">允许其他会话检索摘要并只读查阅证据</label>
+    <p class="muted">模型生成的摘要可能遗漏细节或包含推测，请结合实验记录核对。关闭共享会阻止后续读取，已读入其他会话的内容不会自动撤回。</p>
+    <p id="session-summary-message" role="status"></p>
+    <div class="dialog-actions"><button type="button" id="generate-session-summary" class="primary">生成摘要</button></div>
+  </dialog>
   <dialog id="rename-dialog" class="history-search-dialog" aria-label="重命名会话">
     <form id="session-title-form">
       <label for="session-title">会话名称</label>

@@ -194,7 +194,7 @@ function describeError(error) {
   if (error.kind === "network") {
     return {
       title: "无法连接到研究服务",
-      detail: "本机服务可能没有启动或已经退出。确认 python web_server.py 正在运行后重试。",
+      detail: "本机服务可能没有启动或已经退出。请重新打开 LuLu，或从终端启动 research_agent.web_server。",
       raw: error.detail || error.message,
       retry: true,
     };
@@ -530,6 +530,10 @@ async function openRun(id) {
       session?.session_id ? request(`/api/sessions/${session.session_id}`).catch(() => null) : null,
     ]);
     if (version !== viewVersion) return;
+    if (session && session.status !== run.status) {
+      session.status = run.status;
+      renderHistory();
+    }
     currentTurn = run;
     renderRunAttachments(run.attachments);
     threadMessages = new Map((thread?.turns || []).map((turn) => [turn.id, turn]));
@@ -579,6 +583,7 @@ function syncUrl() {
 }
 
 function experimentTitle(experiment, index) {
+  if (experiment.task === "python") return `实验 ${index + 1} · 沙箱分析`;
   if (experiment.task === "kernel") return `实验 ${index + 1} · 算子${experiment.suite === "validation" ? "复核" : "优化"}`;
   if (experiment.task === "classification") {
     return `实验 ${index + 1} · 分类（划分种子 ${experiment.split_seed}）`;
@@ -844,7 +849,11 @@ function renderEvidence() {
     wrapper.append(table);
     const source = element("details");
     source.append(element("summary", "候选代码"), element("pre", evidence.code || ""));
-    panel.append(wrapper, source, element("p", stats.method || "", "muted"));
+    panel.append(wrapper, source, renderMeasurement(stats));
+  } else if (experiment.task === "python") {
+    panel.append(element("p", "脚本已在沙箱执行，输出不等同于固定评测器的验证结果。", "muted"),
+      element("pre", stats.output || "脚本未输出文本。"));
+    const source = element("details"); source.append(element("summary", "实验代码"), element("pre", evidence.code || "")); panel.append(source);
   } else if (classification) panel.append(classificationTable(stats));
   else panel.append(...prefixCacheEvidence(stats));
 
@@ -855,13 +864,41 @@ function renderEvidence() {
   const replay = element("details");
   replay.append(element("summary", "复跑命令"));
   const shell = element("div", "", "pre-wrap");
-  const code = element("pre", evidence.reproduce_from_project_root);
+  const command = currentReplayCommand(evidence.reproduce_from_project_root);
+  const code = element("pre", command);
   const copy = element("button", "复制", "copy");
   copy.type = "button";
-  copy.addEventListener("click", () => copyText(evidence.reproduce_from_project_root, copy, code));
+  copy.addEventListener("click", () => copyText(command, copy, code));
   shell.append(code, copy);
   replay.append(shell);
   panel.append(raw, replay);
+}
+
+function currentReplayCommand(command = "") {
+  return command.replace(/-m benchmark\./g, "-m research_agent.benchmark.")
+    .replace(/python benchmark\/(\w+)\.py/g, "python -m research_agent.benchmark.$1");
+}
+
+function renderMeasurement(stats) {
+  const section = element("section", "", "measurement");
+  section.append(element("h4", "测量方式"));
+  const method = stats.method || "";
+  const values = stats.measurement || {
+    dtype: method.match(/float\d+/)?.[0], warmups: method.match(/(\d+) warmups/)?.[1],
+    repeats: method.match(/(\d+) alternating/)?.[1], calls_per_sample: method.match(/(\d+) calls\/sample/)?.[1],
+    statistic: method.includes("median") ? "median" : null,
+    rtol: method.match(/rtol=([\de.+-]+)/)?.[1], atol: method.match(/atol=([\de.+-]+)/)?.[1],
+  };
+  const facts = element("dl", "", "measurement-facts");
+  for (const [label, value] of [["数据类型", values.dtype], ["预热", values.warmups && `${values.warmups} 轮`],
+    ["配对复测", values.repeats && `${values.repeats} 轮`], ["每次采样", values.calls_per_sample && `${values.calls_per_sample} 次调用`],
+    ["耗时统计", values.statistic === "median" ? "中位数" : values.statistic],
+    ["误差容限", values.rtol != null ? `相对 ${values.rtol} · 绝对 ${values.atol}` : null]]) {
+    if (value == null) continue;
+    const item = element("div"); item.append(element("dt", label), element("dd", value)); facts.append(item);
+  }
+  section.append(facts, element("p", "先预热，再交替测量基线与候选，减少执行顺序对结果的影响。", "muted"));
+  return section;
 }
 
 function prefixCacheEvidence(stats) {
@@ -1106,7 +1143,7 @@ function renderReport(result) {
 }
 
 function renderTurnResult(result) {
-  if (result.mode === "chat" && result.answer) {
+  if (["chat", "summary"].includes(result.mode) && result.answer) {
     const answer = $("#assistant-answer");
     answer.replaceChildren(...renderMarkdown(result.answer));
     answer.hidden = false;
@@ -1240,7 +1277,8 @@ function setupComposer(form, sendId, modeId, budgetId, defaultMode) {
   const files = tools.querySelector(".attachment-input");
   const list = tools.querySelector(".attachments");
   const error = tools.querySelector(".attachment-error");
-  const mode = tools.querySelector("select");
+  const mode = tools.querySelector(".mode-value");
+  const picker = tools.querySelector(".mode-picker");
   const budget = tools.querySelector('input[type="number"]');
   const settings = tools.querySelector(".composer-settings");
   const settingsButton = tools.querySelector(".settings-button");
@@ -1251,12 +1289,31 @@ function setupComposer(form, sendId, modeId, budgetId, defaultMode) {
   send.id = sendId;
   mode.id = modeId;
   mode.value = defaultMode;
-  mode.options[mode.selectedIndex].defaultSelected = true;
+  mode.defaultValue = defaultMode;
   budget.id = budgetId;
   settings.id = `${form.id}-settings`;
   settingsButton.setAttribute("popovertarget", settings.id);
 
-  const renderMode = () => { tools.querySelector(".composer-mode").textContent = mode.selectedOptions[0].textContent; };
+  const renderMode = () => {
+    const label = mode.value === "chat" ? "聊天" : "自主研究";
+    tools.querySelector(".composer-mode").textContent = label;
+    picker.querySelector("summary").textContent = label;
+    picker.querySelectorAll("[data-mode]").forEach((button) => button.setAttribute("aria-selected", String(button.dataset.mode === mode.value)));
+  };
+  picker.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => {
+    mode.value = button.dataset.mode;
+    picker.open = false;
+    renderMode();
+    picker.querySelector("summary").focus();
+  }));
+  picker.addEventListener("keydown", (event) => {
+    const options = [...picker.querySelectorAll("[data-mode]")];
+    if (event.key === "Escape") { picker.open = false; picker.querySelector("summary").focus(); event.stopPropagation(); }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault(); picker.open = true;
+    const index = options.indexOf(document.activeElement);
+    options[event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (index + (event.key === "ArrowDown" ? 1 : options.length - 1)) % options.length].focus();
+  });
   function useAttachments(next) {
     filesToSend = next;
     list.hidden = !next.length;
@@ -1312,6 +1369,7 @@ function setupComposer(form, sendId, modeId, budgetId, defaultMode) {
     useAttachments([]);
     error.hidden = true;
     if (settings.matches(":popover-open")) settings.hidePopover();
+    picker.open = false;
     queueMicrotask(renderMode);
   });
   mode.addEventListener("change", renderMode);

@@ -13,7 +13,7 @@
   const number = (v) => v == null ? "未计量" : Number(v).toLocaleString("zh-CN");
   const seconds = (v) => v == null ? "未计量" : `${Number(v).toFixed(2)} 秒`;
   const money = (v) => v == null ? "未知" : `¥${Number(v).toFixed(4)}`;
-  const stages = {plan: "规划", hypothesis: "假设", evidence: "资料检索", experiment: "实验", verification: "验证", revision: "修正", decision: "决策"};
+  const stages = {plan: "规划", hypothesis: "假设", evidence: "资料检索", experiment: "实验", verification: "验证", revision: "修正", decision: "决策", summary: "会话摘要"};
   const statuses = {completed: "完成", running: "进行中", failed: "失败", timeout: "超时", interrupted: "已中断", empty: "无结果"};
 
   function render(data) {
@@ -33,7 +33,7 @@
     rows.forEach((entry, index) => {
       const detail = node("details", undefined, "usage-experiment");
       const heading = node("summary");
-      const label = {kernel: "算子优化", classification: "分类实验", prefix_cache: "前缀缓存"}[entry.task] || "实验";
+      const label = {kernel: "算子优化", classification: "分类实验", prefix_cache: "前缀缓存", python: "沙箱分析"}[entry.task] || "实验";
       heading.append(node("span", `${String(index + 1).padStart(2, "0")}  ${label}`),
         node("span", `${statuses[entry.status] || entry.status} · ${seconds(entry.elapsed_seconds)}`, "muted"));
       const metrics = node("dl", undefined, "usage-metrics");
@@ -43,6 +43,7 @@
         ["CPU 时间", seconds(entry.cpu_seconds)],
         ["峰值内存", entry.peak_process_rss_bytes == null ? "未计量" : `${(entry.peak_process_rss_bytes / 1024 ** 2).toFixed(1)} MB`],
         ["GPU 时间", "未计量"], ["实验 ID", entry.experiment_id],
+        ["执行隔离", execution?.isolation || "受控评测工具"],
       ]) metrics.append(node("dt", key), node("dd", value));
       detail.append(heading, node("p", entry.reason || "", "muted"), metrics);
       experiments.append(detail);

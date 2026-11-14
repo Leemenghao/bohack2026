@@ -769,7 +769,7 @@ button:focus-visible { outline-offset: 2px; }
 }
 .run-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; font-size: var(--text-sm); }
 .conversation { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 2px 4px; }
-.conversation:focus-visible { outline-offset: -2px; }
+.conversation:focus { outline: none; }
 .in-conversation { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
 .in-conversation .app-layout { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
 .in-conversation .hero { display: none; }
@@ -940,3 +940,36 @@ button:focus-visible { outline-offset: 2px; }
   .usage-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .usage-experiment > summary { flex-wrap: wrap; }
 }
+
+.mode-field { margin-top: 12px; color: var(--text-dim); }
+.mode-value { display: none !important; }
+.mode-picker { margin-top: 6px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--well); }
+.mode-picker > summary { padding: 9px 12px; cursor: pointer; color: var(--text); list-style: none; display: flex; align-items: center; justify-content: space-between; }
+.mode-picker > summary::before { content: none; }
+.mode-picker > summary::after { content: "⌄"; color: var(--text-dim); }
+.mode-options { border-top: 1px solid var(--line); padding: 5px; display: grid; gap: 4px; }
+.mode-options button { padding: 9px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.mode-options button[aria-selected="true"], .mode-options button:hover { background: var(--accent-soft); }
+.mode-options small { display: block; color: var(--text-dim); font-size: 12px; margin-top: 3px; }
+.measurement { margin: 20px 0; }
+.measurement h4 { margin-bottom: 10px; }
+.measurement-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; }
+.measurement-facts > div { background: var(--well); border: 1px solid var(--line); border-radius: 9px; padding: 11px; }
+.measurement-facts dt { color: var(--text-dim); font-size: 12px; margin-bottom: 5px; }
+.measurement-facts dd { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.measurement .muted { font-size: 12px; }
+.artifact-dialog { width: min(900px, calc(100% - 32px)); }
+.artifact-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; }
+.artifact-toolbar > a { margin-left: auto; }
+.artifact-toolbar [aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+#artifact-content pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: none; }
+.record-fields { display: grid; gap: 10px; min-width: 0; }
+.record-field { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.record-field .muted { margin: 0; }
+.record-group { border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; }
+.record-group > summary { cursor: pointer; }
+.record-group > .record-fields { margin-top: 12px; }
+.record-text { min-width: 0; padding-top: 10px; }
+.session-share { display: flex; gap: 10px; align-items: center; font: inherit; margin: 22px 0 12px; letter-spacing: normal; }
+#session-context { min-width: 130px; }
+#session-context button { display: block; width: 100%; text-align: left; }
