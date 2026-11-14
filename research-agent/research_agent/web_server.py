@@ -4,13 +4,16 @@ import os
 import re
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from threading import Lock, Thread
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from research_agent.cli import ROOT, run_research
-from research_agent.research.experiments import DEFAULT_TASK, TASK_INSTRUCTIONS
-from research_agent.research.history import HISTORY_FIELDS, RUN_ID, load_run, save_run, timestamp
+from archive import build_archive
+from runview import HISTORY_FIELDS, RUN_ID, load_run, save_run, timestamp
+
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_TASK = "prefix_cache"
 
 ASSETS = {
     "/": ("index.html", "text/html"),
@@ -21,14 +24,18 @@ runs = {}
 state_lock = Lock()
 
 
-def execute(run_id, question, budget, task):
+def execute(run_id, question, budget, task, cloud_budget):
     def on_event(event):
         with state_lock:
             runs[run_id]["events"].append(event)
             save_run(ROOT / "runs" / run_id, runs[run_id])
 
     try:
-        run_research(question, ROOT / "runs" / run_id, budget, on_event, task=task)
+        from research_agent.cli import run_research
+
+        run_research(question, ROOT / "runs" / run_id, budget, on_event, task=task, cloud_budget=cloud_budget)
+    except ModuleNotFoundError as error:
+        update = {"status": "failed", "error": f"本机缺少运行依赖（{error.name}）。请按 README 安装。"}
     except Exception as error:
         # Provider errors can contain request metadata. Expose only the status or class.
         status = getattr(error, "status_code", None)
@@ -79,7 +86,24 @@ class Handler(BaseHTTPRequestHandler):
                         run = runs.get(folder.name) or load_run(folder)
                         if run:
                             history.append({"id": folder.name, **{key: run[key] for key in HISTORY_FIELDS}})
-            self.send_json(200, sorted(history, key=lambda run: run["created_at"], reverse=True))
+            self.send_json(200, {"runs": sorted(history, key=lambda run: run["created_at"], reverse=True)})
+            return
+
+        export_match = re.fullmatch(r"/api/runs/([a-f0-9]{12})/export", path)
+        if export_match:
+            run_id = export_match.group(1)
+            try:
+                payload = build_archive(ROOT / "runs" / run_id, run_id)
+            except FileNotFoundError:
+                self.send_json(404, {"error": "该运行还没有可导出的产物。"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition", f'attachment; filename="run-{run_id}.zip"')
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(payload)
             return
 
         match = re.fullmatch(
@@ -119,16 +143,20 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(size))
             question = payload["question"].strip()
             budget = payload["max_experiments"]
+            cloud_budget = payload.get("cloud_budget", 15)
             if not 0 < len(question) <= 2000 or type(budget) is not int or not 1 <= budget <= 3:
                 raise ValueError
         except (ValueError, KeyError, TypeError, AttributeError):
             self.send_json(400, {"error": "请输入 1–2000 字的研究问题，实验预算为 1–3 次。"})
             return
+        if type(cloud_budget) is not int or not 1 <= cloud_budget <= 20:
+            self.send_json(400, {"error": "云端调用上限为 1–20 次。"})
+            return
         task = payload.get("task")
         if "task" not in payload:
             terms = r"不平衡|分类|类别加权|少数类|逻辑回归|\b(?:classification|class weights?|class_weight|minority class|logistic regression)\b"
             task = "classification" if re.search(terms, question, re.IGNORECASE) else DEFAULT_TASK
-        if not isinstance(task, str) or task not in TASK_INSTRUCTIONS:
+        if not isinstance(task, str) or task not in ("prefix_cache", "classification"):
             self.send_json(400, {"error": "请选择有效的研究任务。"})
             return
         with state_lock:
@@ -145,7 +173,7 @@ class Handler(BaseHTTPRequestHandler):
         if run_id is None:
             self.send_json(HTTPStatus.CONFLICT, {"error": "已有一项研究在运行。"})
             return
-        Thread(target=execute, args=(run_id, question, budget, task)).start()
+        Thread(target=execute, args=(run_id, question, budget, task, cloud_budget)).start()
         self.send_json(HTTPStatus.ACCEPTED, {"id": run_id})
 
 

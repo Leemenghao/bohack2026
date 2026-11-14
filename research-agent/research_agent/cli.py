@@ -15,6 +15,8 @@ from research_agent import (
 )
 from research_agent.research.experiments import DEFAULT_TASK, TASK_INSTRUCTIONS, make_experiment
 from research_agent.research.tools import make_research_tools
+from budget import Budget
+from memory import load_previous, memory_block
 from dotenv import load_dotenv
 from langchain.agents.middleware import ModelCallLimitMiddleware, ToolCallLimitMiddleware
 from langchain_core.messages import AIMessage
@@ -42,7 +44,8 @@ source_id 用 fetch_source 读取。实验前用 record_progress 写一条可检
 """
 
 
-def build_agent(model, run_dir, max_experiments=3, on_event=None, *, task=DEFAULT_TASK):
+def build_agent(model, run_dir, max_experiments=3, on_event=None, *, task=DEFAULT_TASK, budget=None, memory=""):
+    budget = budget or Budget(calls=15)
     tavily_key = os.getenv("TAVILY_API_KEY", "").strip()
     evidence_tools = make_research_tools(run_dir, tavily_key, on_event)
     completed_ids = set()
@@ -90,9 +93,9 @@ def build_agent(model, run_dir, max_experiments=3, on_event=None, *, task=DEFAUL
             task_instructions=TASK_INSTRUCTIONS[task],
             max_experiments=max_experiments,
             search_scope="通用网页（Tavily）" if tavily_key else "arXiv 论文元数据（DataCite），可下载公开摘要",
-        ),
+        ) + "\n\n【云端预算】" + budget.prompt_line() + (f"\n\n{memory}" if memory else ""),
         middleware=[
-            ModelCallLimitMiddleware(run_limit=15),
+            ModelCallLimitMiddleware(run_limit=budget.calls),
             ToolCallLimitMiddleware(tool_name="search_sources", run_limit=MAX_SEARCHES),
             ToolCallLimitMiddleware(tool_name="web_search", run_limit=MAX_SEARCHES),
             ToolCallLimitMiddleware(tool_name="fetch_source", run_limit=MAX_FETCHES),
@@ -101,11 +104,18 @@ def build_agent(model, run_dir, max_experiments=3, on_event=None, *, task=DEFAUL
     )
 
 
-def run_research(question, run_dir, max_experiments=3, on_event=None, *, task=DEFAULT_TASK):
+def run_research(question, run_dir, max_experiments=3, on_event=None, *, task=DEFAULT_TASK, cloud_budget=15, token_budget=0, use_memory=True):
     load_dotenv(ROOT / ".env")
     key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     if not key:
         raise ValueError(f"Fill in DEEPSEEK_API_KEY in {ROOT / '.env'} first.")
+
+    budget = Budget(calls=cloud_budget, tokens=token_budget)
+    previous = load_previous(ROOT / "runs", exclude=run_dir) if use_memory else None
+    if on_event:
+        on_event({"type": "budget", **budget.snapshot()})
+        if previous:
+            on_event({"type": "memory", "run_id": previous["run_id"]})
 
     model = ChatOpenAI(
         model=MODEL,
@@ -118,7 +128,7 @@ def run_research(question, run_dir, max_experiments=3, on_event=None, *, task=DE
         max_retries=0,
     )
     run_dir.mkdir(parents=True, exist_ok=True)
-    agent = build_agent(model, run_dir, max_experiments, on_event, task=task)
+    agent = build_agent(model, run_dir, max_experiments, on_event, task=task, budget=budget, memory=memory_block(previous))
     started = time.monotonic()
     result = agent.invoke({"messages": [{"role": "user", "content": question}]})
     report = result["messages"][-1].text
@@ -149,10 +159,16 @@ def run_research(question, run_dir, max_experiments=3, on_event=None, *, task=DE
         report = f"{report.rstrip()}\n\n## 检索到的资料\n\n{references}"
     usage = {"input_tokens": 0, "output_tokens": 0}
     for message in result["messages"]:
-        if isinstance(message, AIMessage) and message.usage_metadata:
-            for name in usage:
-                usage[name] += message.usage_metadata[name]
-    summary = {"question": question, "task": task, "model": MODEL, "usage": usage, "elapsed_seconds": round(time.monotonic() - started, 2)}
+        if isinstance(message, AIMessage):
+            budget.spend_call()
+            if message.usage_metadata:
+                for name in usage:
+                    usage[name] += message.usage_metadata[name]
+    budget.spend_tokens(sum(usage.values()))
+    if on_event:
+        on_event({"type": "budget_end", **budget.snapshot()})
+    report += f"\n\n## 运行预算\n\n云端调用 {budget.used_calls}/{budget.calls} 次，共 {sum(usage.values())} token。"
+    summary = {"question": question, "task": task, "budget": budget.snapshot(), "memory_from": previous["run_id"] if previous else None, "model": MODEL, "usage": usage, "elapsed_seconds": round(time.monotonic() - started, 2)}
     (run_dir / "report.md").write_text(report + "\n")
     (run_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2))
     return {"report": report, **summary}
@@ -162,10 +178,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("question")
     parser.add_argument("--task", choices=TASK_INSTRUCTIONS, default=DEFAULT_TASK)
+    parser.add_argument("--cloud-budget", type=int, default=15)
+    parser.add_argument("--token-budget", type=int, default=0, help="Token 用量参考值，运行结束后统计")
+    parser.add_argument("--no-memory", action="store_true")
     args = parser.parse_args()
     run_dir = ROOT / "runs" / uuid4().hex[:12]
     try:
-        result = run_research(args.question, run_dir, task=args.task)
+        result = run_research(args.question, run_dir, task=args.task, cloud_budget=args.cloud_budget,
+                              token_budget=args.token_budget, use_memory=not args.no_memory)
     except ValueError as error:
         parser.exit(2, f"{error}\n")
     print(result["report"])
