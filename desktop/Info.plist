@@ -7,7 +7,9 @@
     <key>CFBundleIdentifier</key>
     <string>org.bohack.research-agent</string>
     <key>CFBundleName</key>
-    <string>Research Agent</string>
+    <string>LuLu Research</string>
+    <key>CFBundleIconFile</key>
+    <string>LuLu</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleVersion</key>

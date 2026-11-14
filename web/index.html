@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <title>Research Agent · 研究工作台</title>
+  <meta name="color-scheme" content="light dark">
+  <title>LuLu Research · 研究工作台</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232fe3b0'/%3E%3Cpath d='M4.5 12h3l2-5 3.5 10 2.5-6 1.5 1h2' fill='none' stroke='%2304130e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
+  <script src="/preferences.js" defer></script>
+  <script src="/usage.js" defer></script>
 </head>
 <body>
   <noscript><p class="noscript">本工作台需要启用 JavaScript 才能发起实验并展示结果，请开启后刷新页面。</p></noscript>
@@ -15,78 +17,102 @@
   <header class="topbar">
     <div class="wrap topbar-inner">
       <div class="brand">
+        <button type="button" id="sidebar-toggle" class="view-button" aria-label="研究侧栏" aria-controls="history" aria-expanded="true" title="隐藏侧栏">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2"/>
+            <path d="M9 5v14"/>
+          </svg>
+        </button>
         <span class="mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 12h3.2l2.3-7 3.8 14 2.9-9 1.6 2h4.2"/>
+          <svg viewBox="0 0 1024 1024" fill="none">
+            <rect x="64" y="64" width="896" height="896" rx="210" fill="#f5f0e3"/>
+            <path d="M310 344v280q0 80 100 80h30M590 344v280q0 80 100 80h30" stroke="#3d6e5c" stroke-width="100" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="748" cy="344" r="34" fill="#9ebfa3"/>
           </svg>
         </span>
-        <span class="brand-name">Research Agent</span>
+        <span class="brand-name">LuLu Research</span>
         <span class="brand-sep" aria-hidden="true">/</span>
         <span class="brand-sub">研究工作台</span>
       </div>
+      <button type="button" id="theme-toggle" class="view-button" role="switch" aria-label="深色模式" aria-checked="true">
+        <span id="theme-indicator" aria-hidden="true"></span>
+        <span id="theme-label" aria-hidden="true">深色</span>
+      </button>
     </div>
   </header>
 
   <div class="app-layout">
-    <aside id="history" class="history" aria-label="研究历史">
+    <aside id="history" class="history" aria-label="研究会话">
       <button type="button" id="new-research" class="history-item">＋ 新建研究</button>
-      <span class="history-label">研究历史</span>
+      <div class="history-heading">
+        <h2>研究会话</h2>
+        <button type="button" id="open-history-search" class="icon-button" aria-label="搜索研究记录" title="搜索研究记录" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 21l-4.5-4.5m2.5-5A7.5 7.5 0 1 1 4 11.5a7.5 7.5 0 0 1 15 0Z"/></svg></button>
+      </div>
+      <p id="session-error" role="alert" hidden></p>
       <nav id="history-list" class="history-list" aria-label="历史研究"></nav>
+      <button type="button" id="open-preferences" class="view-button sidebar-settings" aria-haspopup="dialog">⚙ 设置</button>
     </aside>
   <main class="wrap">
     <section class="hero">
-      <p class="eyebrow">BoHack 2026</p>
-      <h1>让 Agent 用实测数据回答<em>它自己的假设</em></h1>
-      <p class="lede">输入关于 MLX 前缀缓存或不平衡分类的问题。Agent 会查找资料、运行本机实验并依据结果决定是否复测。</p>
+      <h1>从研究问题到<em>可验证的实验报告</em></h1>
+      <p class="lede">提出一个研究问题，LuLu 会查资料、运行实验，并根据结果和预算决定是否补测，把实测结果和复跑方法整理成报告。</p>
     </section>
 
-    <form id="research" class="config" aria-label="实验配置">
-      <div class="field question-field">
-        <label for="question">研究问题</label>
-        <textarea id="question" maxlength="2000" rows="4" placeholder="例如：MLX 前缀缓存能否降低首 token 延迟？" required></textarea>
-      </div>
-      <details class="field research-settings">
-        <summary>运行设置</summary>
-        <label for="budget">实验次数上限（1–3）</label>
-        <input id="budget" type="number" min="1" max="3" step="1" value="3" required>
-      </details>
-      <button class="primary" id="start" type="submit">
-        <span>运行研究</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 12h13M13 6l6 6-6 6"/>
-        </svg>
-      </button>
+    <form id="research" class="composer" aria-label="发起研究">
+      <label for="question" class="sr-only">研究问题</label>
+      <textarea id="question" maxlength="2000" rows="3" placeholder="例如：优化逐行归一化算子，验证正确性并比较不同实现的性能。" required></textarea>
+      <div class="composer-tools"></div>
     </form>
 
     <div class="workspace" hidden>
-      <section class="panel timeline">
+      <section id="conversation-panel" class="timeline">
         <div class="panel-head">
-          <h2>研究时间线</h2>
+          <h2>研究对话</h2>
+          <button type="button" id="cancel-run" class="view-button" hidden>停止研究</button>
           <span id="status" class="status" role="status" data-state="idle">待运行</span>
         </div>
         <div id="progress" class="progress" hidden>
           <div class="progress-track" aria-hidden="true"><i id="progress-fill"></i></div>
           <span id="progress-text" class="progress-text"></span>
         </div>
-        <p id="run-question" class="context"></p>
-        <p id="context" class="context" hidden></p>
-        <p id="hint" class="hint">发起研究后，每一轮实验的选择依据会出现在这里。</p>
-        <div id="retrievals" class="retrievals"></div>
-        <div id="events"></div>
+        <div id="conversation" class="conversation" aria-label="研究对话记录" tabindex="0">
+          <div id="conversation-turns"></div>
+          <div id="run-question" class="markdown-content"></div>
+          <ul id="run-attachments" class="attachments" aria-label="本轮附件"></ul>
+          <div class="run-meta">
+            <p id="context" class="sr-only" hidden></p>
+            <button type="button" id="resource-link" class="view-button" aria-haspopup="dialog" hidden>用量详情</button>
+            <span id="resource-usage" class="muted" hidden></span>
+          </div>
+          <p id="hint" class="hint">发起研究后，每一轮实验的选择依据会出现在这里。</p>
+          <div id="run-error" hidden></div>
+          <div id="events"></div>
+          <div id="assistant-answer" class="assistant-answer" aria-label="Agent 回答" hidden></div>
+          <button type="button" id="report-node" class="report-node view-button" aria-controls="details-panel" hidden>研究报告已生成 · 查看报告</button>
+        </div>
+        <form id="follow-up" class="composer follow-up" hidden>
+          <label for="follow-up-question" class="sr-only">继续这项研究</label>
+          <textarea id="follow-up-question" rows="2" maxlength="2000" placeholder="继续提问，或让 Agent 补测一轮…" required></textarea>
+          <div class="composer-tools"></div>
+          <p id="follow-up-error" class="hint" role="alert" hidden></p>
+          <button type="button" id="retry-turn" class="view-button" hidden>重试本轮</button>
+        </form>
       </section>
-
-      <section class="panel inspector" aria-label="研究结果">
+      <div id="pane-divider" role="separator" tabindex="0" aria-label="调整对话与详情的比例"
+        aria-controls="conversation-panel details-panel" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="70" aria-valuenow="55" hidden></div>
+      <aside id="details-panel" class="inspector" aria-label="研究结果" hidden>
         <div class="view-bar">
           <button type="button" id="evidence-tab" class="view-button" aria-pressed="true" aria-controls="evidence">证据详情</button>
           <button type="button" id="report-tab" class="view-button" aria-pressed="false" aria-controls="result" disabled>研究报告</button>
           <span id="report-hint" class="view-hint">完成可看</span>
+          <button type="button" id="close-details" class="view-button" aria-label="关闭详情" title="关闭详情">×</button>
         </div>
         <div id="evidence" class="view">
           <div class="empty-state">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 19V5M4 19h16M8 15l3.2-4.4L14 14l2.8-3.6L19 13"/>
             </svg>
-            <p>选择左侧任意一轮实验，查看缓存开关的实测对照。</p>
+            <p>从对话中选择一轮实验，查看实测结果。</p>
           </div>
         </div>
         <div id="result" class="view" hidden>
@@ -100,14 +126,90 @@
           <div id="report"></div>
           <div id="report-experiments" class="report-experiments"></div>
         </div>
-      </section>
+      </aside>
     </div>
   </main>
   </div>
 
-  <footer class="wrap foot">
-    <span>实验在本机运行</span>
-    <span>每次运行生成独立记录与复跑命令</span>
-  </footer>
+  <template id="composer-tools">
+    <ul class="attachments" aria-label="待发送附件" hidden></ul>
+    <p class="attachment-error" role="alert" hidden></p>
+    <div class="composer-toolbar">
+      <input class="attachment-input" type="file" accept=".txt,.md,.csv,.json" multiple hidden>
+      <button type="button" class="icon-button attach" aria-label="添加文本附件" title="添加文本附件（TXT、MD、CSV、JSON）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13.5l6.8-6.8a2.5 2.5 0 0 1 3.5 3.5L9.6 19a4 4 0 0 1-5.7-5.6l9-9"/></svg></button>
+      <button type="button" class="icon-button settings-button" aria-label="本轮设置" title="本轮设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16M8 4v4m8 2v4m-5 2v4"/></svg></button>
+      <span class="composer-mode"></span>
+      <button type="submit" class="primary icon-button send-button" aria-label="发送" title="发送（Enter）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 5v7a4 4 0 0 1-4 4H4m5-5-5 5 5 5"/></svg></button>
+    </div>
+    <div class="composer-settings" popover>
+      <h3>本轮设置</h3>
+      <label>运行方式
+        <select><option value="research">运行研究</option><option value="chat">只聊天</option></select>
+      </label>
+      <label>人民币费用阈值
+        <input type="number" min="0.001" step="any" placeholder="可留空">
+      </label>
+      <p>高峰价估算；已发出的请求仍会结算。本地实验次数不限。</p>
+      <p>文本附件随本轮问题发给模型，并写入本机运行记录和导出的产物。</p>
+    </div>
+  </template>
+
+  <dialog id="history-search-dialog" class="history-search-dialog" aria-labelledby="history-search-title">
+    <header class="dialog-heading">
+      <h2 id="history-search-title">查找研究记录</h2>
+      <button type="button" id="close-history-search" class="icon-button" aria-label="关闭搜索">×</button>
+    </header>
+    <div class="history-filters">
+      <input id="history-search" type="search" placeholder="搜索标题或实验问题…" aria-label="搜索研究记录" autofocus>
+      <button type="button" id="history-archive" class="view-button" aria-pressed="false">已归档</button>
+    </div>
+    <nav id="history-search-results" class="history-list" aria-label="搜索结果"></nav>
+  </dialog>
+
+
+  <dialog id="preferences-dialog" class="app-dialog" aria-labelledby="preferences-title">
+    <div class="dialog-heading"><div><h2 id="preferences-title">设置</h2><p class="muted">连接你的模型与资料检索服务</p></div><button type="button" class="icon-button close-dialog" aria-label="关闭设置">✕</button></div>
+    <form id="preferences-form">
+      <section class="settings-section">
+        <h3>模型服务</h3>
+        <div class="preset-buttons"><button type="button" class="view-button" data-preset="deepseek">DeepSeek</button><button type="button" class="view-button" data-preset="aiping">AI Ping</button><span class="muted">支持 OpenAI 兼容接口</span></div>
+        <label>Base URL<input id="model-url" type="url" required autocomplete="off" placeholder="https://api.example.com/v1"></label>
+        <label>模型 ID<input id="model-name" required maxlength="150" autocomplete="off" placeholder="填写服务商提供的模型 ID"></label>
+        <label>API Key<input id="model-key" type="password" autocomplete="new-password" placeholder="留空保留此地址的已存密钥" maxlength="4096"></label>
+        <p id="model-key-status" class="muted"></p>
+        <details class="price-settings"><summary>费用估算 · 可选</summary><p class="muted">元 / 百万 token。第三方价格与官方可能不同；不填写则标为费用未知，也无法按人民币准确控制预算。</p><div class="price-fields"><label>输入<input id="price-input" type="number" min="0" step="any"></label><label>输出<input id="price-output" type="number" min="0" step="any"></label><label>缓存命中<input id="price-cache" type="number" min="0" step="any"></label></div></details>
+      </section>
+      <section class="settings-section">
+        <h3>资料检索</h3><p class="muted">使用 DeepSeek Search / Fetch 协议，独立于模型连接。</p>
+        <label>工具 Base URL<input id="search-url" type="url" required autocomplete="off"></label>
+        <label>API Key<input id="search-key" type="password" autocomplete="new-password" placeholder="留空保留此地址的已存密钥" maxlength="4096"></label>
+        <p id="search-key-status" class="muted"></p>
+      </section>
+      <p class="muted">密钥保存在 macOS 钥匙串，页面不回显。保存时可将对应地址的 .env 密钥转存；原 .env 保留不变。设置从下一轮研究生效。</p>
+      <p id="preferences-message" role="status"></p>
+      <div class="dialog-actions"><button type="submit" class="primary">保存设置</button></div>
+    </form>
+  </dialog>
+  <dialog id="usage-dialog" class="app-dialog usage-dialog" aria-labelledby="usage-title">
+    <div class="dialog-heading"><div><h2 id="usage-title">研究用量</h2><p id="usage-subtitle" class="muted"></p></div><button type="button" class="icon-button close-dialog" aria-label="关闭用量详情">✕</button></div>
+    <label class="usage-turn">研究轮次<select id="usage-turn"></select></label>
+    <p id="usage-message" role="status"></p>
+    <div id="usage-content"></div>
+    <div class="dialog-actions"><a id="usage-download" class="view-button" download="resources.json" hidden>下载原始账本</a><button type="button" id="refresh-usage" class="view-button">刷新</button></div>
+  </dialog>
+  <div id="session-context" popover="auto">
+    <button type="button" id="rename-session" class="view-button">重命名</button>
+  </div>
+  <dialog id="rename-dialog" class="history-search-dialog" aria-label="重命名会话">
+    <form id="session-title-form">
+      <label for="session-title">会话名称</label>
+      <input id="session-title" maxlength="100" required>
+      <div class="rename-actions">
+        <button type="button" id="cancel-rename" class="view-button">取消</button>
+        <button type="submit" class="primary">保存</button>
+      </div>
+      <p id="rename-error" role="alert" hidden></p>
+    </form>
+  </dialog>
 </body>
 </html>

@@ -9,6 +9,7 @@ Pure filesystem logic: no model, no network, so it is testable offline.
 """
 
 import re
+import json
 from pathlib import Path
 
 MAX_MEMORY_CHARS = 700
@@ -32,6 +33,13 @@ def load_previous(runs_root: Path, exclude: Path | None = None) -> dict | None:
     for run_dir in list_runs(runs_root):
         if exclude and run_dir.resolve() == exclude:
             continue
+        summary_path = run_dir / "summary.json"
+        if summary_path.is_file():
+            try:
+                if json.loads(summary_path.read_text()).get("status", "complete") != "complete":
+                    continue
+            except (ValueError, AttributeError):
+                continue
         text = (run_dir / "report.md").read_text(encoding="utf-8", errors="replace").strip()
         if text:
             return {"run_id": run_dir.name, "text": text}
