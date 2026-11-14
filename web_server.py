@@ -8,8 +8,11 @@ from threading import Lock, Thread
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from research_agent import ROOT, run_research
 from archive import build_archive
+
+# The agent stack (langchain / mlx) is imported lazily inside `execute` so the
+# workbench UI can be served and inspected without those dependencies installed.
+ROOT = Path(__file__).resolve().parent
 
 ASSETS = {
     "/": ("index.html", "text/html"),
@@ -26,6 +29,8 @@ def execute(run_id, question, budget, cloud_budget=8):
             runs[run_id]["events"].append(event)
 
     try:
+        from research_agent import run_research
+
         result = run_research(
             question, ROOT / "runs" / run_id, budget, on_event, cloud_budget=cloud_budget
         )
