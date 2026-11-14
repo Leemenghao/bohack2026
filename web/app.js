@@ -1,9 +1,19 @@
 const $ = (selector) => document.querySelector(selector);
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 });
+const MODEL = "deepseek-flash";
+const HISTORY_KEY = "bohack.recent-runs";
+const HISTORY_MAX = 5;
+const SVG_NS = "http://www.w3.org/2000/svg";
+
 let experiments = [];
 let selected = 0;
 let activeRun = "";
 let runStatus = "idle";
+let runBudget = 3;
+let startedAt = 0;
+let clock = null;
+
+/* ---------- primitives ---------- */
 
 function element(tag, text = "", className = "") {
   const node = document.createElement(tag);
@@ -12,9 +22,7 @@ function element(tag, text = "", className = "") {
   return node;
 }
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-function icon(pathData) {
+function icon(pathData, className = "") {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("fill", "none");
@@ -23,15 +31,19 @@ function icon(pathData) {
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
   svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", className);
   const path = document.createElementNS(SVG_NS, "path");
   path.setAttribute("d", pathData);
   svg.append(path);
   return svg;
 }
 
+const ICON_CHART = "M4 19V5M4 19h16M8 15l3.2-4.4L14 14l2.8-3.6L19 13";
+const ICON_ALERT = "M12 9v4m0 3.5h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z";
+
 function emptyState(text) {
   const box = element("div", "", "empty-state");
-  box.append(icon("M4 19V5M4 19h16M8 15l3.2-4.4L14 14l2.8-3.6L19 13"), element("p", text));
+  box.append(icon(ICON_CHART), element("p", text));
   return box;
 }
 
@@ -44,22 +56,73 @@ function statCard(label, value, unit) {
   return card;
 }
 
-async function copyText(text, button) {
-  try {
-    await navigator.clipboard.writeText(text);
-    button.textContent = "已复制";
-  } catch {
-    button.textContent = "复制失败";
+/* ---------- network ---------- */
+
+class RequestError extends Error {
+  constructor(message, { kind = "http", status = 0, detail = "" } = {}) {
+    super(message);
+    this.kind = kind;
+    this.status = status;
+    this.detail = detail;
   }
-  setTimeout(() => { button.textContent = "复制"; }, 1600);
 }
 
 async function request(url, options) {
-  const response = await fetch(url, options);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error);
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch (error) {
+    throw new RequestError(error.message, { kind: "network", detail: error.message });
+  }
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    throw new RequestError(data?.error || `HTTP ${response.status}`, {
+      kind: "http",
+      status: response.status,
+      detail: data?.error || "",
+    });
+  }
+  if (!data) throw new RequestError("服务返回了无法解析的响应。", { kind: "http", status: response.status });
   return data;
 }
+
+function describeError(error) {
+  if (error.kind === "network") {
+    return {
+      title: "无法连接到研究服务",
+      detail: "本机服务可能没有启动或已经退出。确认 python web_server.py 正在运行后重试。",
+      raw: error.detail || error.message,
+      retry: true,
+    };
+  }
+  if (error.status === 404) {
+    return {
+      title: "该运行记录已失效",
+      detail: "服务重启后内存中的运行记录会被清空。请重新发起一次研究。",
+      raw: error.detail || "",
+      retry: true,
+    };
+  }
+  if (error.kind === "run") {
+    return { title: "研究运行失败", detail: error.message, raw: error.detail || "", retry: true };
+  }
+  if (error.status) {
+    return {
+      title: `研究运行失败（HTTP ${error.status}）`,
+      detail: "后端返回了错误状态，通常是模型配置或测速环境的问题。",
+      raw: error.detail || error.message,
+      retry: true,
+    };
+  }
+  return { title: "研究运行失败", detail: error.message, raw: "", retry: true };
+}
+
+/* ---------- status & progress ---------- */
 
 function setStatus(state, text) {
   runStatus = state;
@@ -67,11 +130,123 @@ function setStatus(state, text) {
   $("#status").textContent = text;
 }
 
+function tickClock() {
+  if (runStatus !== "running") return;
+  const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const done = experiments.filter((entry) => entry.result).length;
+  $("#progress-text").textContent = `第 ${Math.min(done + 1, runBudget)} / ${runBudget} 轮 · 已用时 ${seconds} 秒`;
+  $("#progress-fill").style.width = `${(done / runBudget) * 100}%`;
+}
+
+function startClock(budget) {
+  runBudget = budget;
+  startedAt = Date.now();
+  stopClock();
+  $("#progress").hidden = false;
+  tickClock();
+  clock = setInterval(tickClock, 1000);
+}
+
+function stopClock() {
+  if (clock) clearInterval(clock);
+  clock = null;
+  $("#progress").hidden = true;
+}
+
+/* ---------- history ---------- */
+
+function loadHistory() {
+  try {
+    const list = JSON.parse(localStorage.getItem(HISTORY_KEY));
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(list) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_MAX)));
+  } catch {
+    /* storage disabled: history is an enhancement, ignore */
+  }
+}
+
+function rememberRun(run) {
+  const list = loadHistory().filter((entry) => entry.id !== run.id);
+  list.unshift(run);
+  saveHistory(list);
+  renderHistory();
+}
+
+function timeLabel(timestamp) {
+  const date = new Date(timestamp);
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function renderHistory() {
+  const list = loadHistory();
+  const section = $("#history");
+  if (!list.length) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  $("#history-list").replaceChildren(...list.map((entry) => {
+    const button = element("button", "", "history-item");
+    button.type = "button";
+    const question = entry.question.length > 26 ? `${entry.question.slice(0, 26)}…` : entry.question;
+    button.append(element("span", timeLabel(entry.at), "history-time"), element("span", question, "history-question"));
+    button.addEventListener("click", () => openRun(entry.id));
+    return button;
+  }));
+}
+
+async function openRun(id) {
+  activeRun = id;
+  selected = 0;
+  experiments = [];
+  $("#report-tab").disabled = true;
+  $("#report-hint").hidden = false;
+  $("#report-hint").textContent = "完成可看";
+  showView(false);
+  setStatus("running", "读取中");
+  try {
+    const run = await request(`/api/runs/${id}`);
+    renderTimeline(run.events || []);
+    if (run.status === "failed") {
+      throw new RequestError(run.error || "研究运行失败", { kind: "run" });
+    }
+    if (run.status === "complete") {
+      setStatus("complete", "已完成");
+      renderReport(run.result);
+      return;
+    }
+    setStatus("running", "运行中");
+    startClock(Number($("#budget").value));
+    await follow(id);
+    stopClock();
+  } catch (error) {
+    stopClock();
+    failRun(error);
+  }
+}
+
+/* ---------- views ---------- */
+
 function showView(report) {
   $("#evidence-tab").setAttribute("aria-pressed", String(!report));
   $("#report-tab").setAttribute("aria-pressed", String(report));
   $("#evidence").hidden = report;
   $("#result").hidden = !report;
+  syncUrl();
+}
+
+function syncUrl() {
+  const params = new URLSearchParams(location.search);
+  if (experiments.length) params.set("exp", String(selected + 1));
+  params.set("view", $("#result").hidden ? "evidence" : "report");
+  window.history.replaceState(null, "", `${location.pathname}?${params}`);
 }
 
 function experimentTitle(experiment, index) {
@@ -143,7 +318,7 @@ function renderEvidence() {
   const chartHead = element("div", "", "chart-head");
   chartHead.append(
     element("h4", "首 token 延迟 · TTFT 中位数"),
-    element("span", `${drop >= 0 ? "↓" : "↑"} ${Math.abs(drop * 100).toFixed(1)}%`, drop >= 0 ? "delta" : "delta up"),
+    element("span", `${drop >= 0 ? "↓" : "↑"} ${Math.abs(drop * 100).toFixed(1)}%${drop >= 0 ? " 更快" : " 更慢"}`, drop >= 0 ? "delta" : "delta up"),
   );
   chart.append(chartHead);
   const maximum = Math.max(stats.median_ttft_ms_off, stats.median_ttft_ms_on, 1);
@@ -180,15 +355,91 @@ function renderEvidence() {
   const replay = element("details");
   replay.append(element("summary", "复跑命令"));
   const shell = element("div", "", "pre-wrap");
-  shell.append(element("pre", evidence.reproduce_from_project_root));
+  const code = element("pre", evidence.reproduce_from_project_root);
+  shell.append(code);
   const copy = element("button", "复制", "copy");
   copy.type = "button";
-  copy.addEventListener("click", () => copyText(evidence.reproduce_from_project_root, copy));
+  copy.addEventListener("click", () => copyText(evidence.reproduce_from_project_root, copy, code));
   shell.append(copy);
   replay.append(shell);
 
   panel.append(chart, metrics, actions, replay);
 }
+
+function renderFailure(info) {
+  const panel = $("#evidence");
+  const block = element("div", "", "state-block");
+  block.append(
+    icon(ICON_ALERT, "state-icon"),
+    element("h3", info.title, "state-title"),
+    element("p", info.detail, "state-detail"),
+  );
+  const actions = element("div", "", "state-actions");
+  const retry = element("button", "重试", "secondary");
+  retry.type = "button";
+  retry.addEventListener("click", () => beginRun($("#question").value.trim(), Number($("#budget").value)));
+  actions.append(retry);
+  block.append(actions);
+  if (info.raw) {
+    const details = element("details", "", "state-raw");
+    details.append(element("summary", "技术详情"), element("pre", info.raw));
+    block.append(details);
+  }
+  panel.replaceChildren(block);
+  showView(false);
+}
+
+function failRun(error) {
+  setStatus("failed", "运行失败");
+  const info = describeError(error);
+  $("#hint").hidden = false;
+  $("#hint").textContent = "本次运行未产生结果，右侧可重试。";
+  $("#report-hint").hidden = false;
+  $("#report-hint").textContent = "未生成";
+  renderFailure(info);
+}
+
+async function copyText(text, button, codeNode) {
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    copied = true;
+  } catch {
+    copied = legacyCopy(text);
+  }
+  if (copied) {
+    button.textContent = "已复制";
+  } else if (codeNode) {
+    const range = document.createRange();
+    range.selectNodeContents(codeNode);
+    const selection = getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    button.textContent = "已选中 · 按 Ctrl+C";
+  } else {
+    button.textContent = "复制失败";
+  }
+  setTimeout(() => { button.textContent = "复制"; }, 2400);
+}
+
+function legacyCopy(text) {
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.append(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/* ---------- markdown ---------- */
 
 function appendInline(node, text) {
   for (const [index, part] of text.split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/g).entries()) {
@@ -249,7 +500,10 @@ function renderReport(result) {
     return [button];
   }));
   $("#report-tab").disabled = false;
+  $("#report-hint").hidden = true;
 }
+
+/* ---------- run ---------- */
 
 async function follow(id) {
   let displayed = 0;
@@ -259,39 +513,43 @@ async function follow(id) {
       $("#hint").hidden = true;
       renderTimeline(run.events);
       displayed = run.events.length;
+      tickClock();
     }
     if (run.status === "failed") {
-      setStatus("failed", "运行失败");
-      renderTimeline(run.events);
-      throw new Error(run.error);
+      throw new RequestError(run.error || "研究运行失败", { kind: "run", detail: run.error || "" });
     }
     if (run.status === "complete") {
       renderReport(run.result);
       setStatus("complete", "已完成");
-      if (!run.events.length) $("#hint").textContent = "本次研究未返回实测记录。";
-      return;
+      if (!run.events.length) {
+        $("#hint").hidden = false;
+        $("#hint").textContent = "本次研究未返回实测记录。";
+      }
+      return run;
     }
     await new Promise((resolve) => setTimeout(resolve, 800));
   }
 }
 
-$("#evidence-tab").addEventListener("click", () => showView(false));
-$("#report-tab").addEventListener("click", () => showView(true));
-
-$("#research").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const question = $("#question").value.trim();
-  const budget = Number($("#budget").value);
+async function beginRun(question, budget) {
+  if (!question) return;
+  runBudget = budget;
+  activeRun = "";
+  experiments = [];
+  selected = 0;
   $("#start").disabled = true;
   $("#report-tab").disabled = true;
+  $("#report-hint").hidden = false;
+  $("#report-hint").textContent = "完成可看";
   $("#context").hidden = false;
-  $("#context").textContent = question;
+  $("#context").textContent = `预算 ${budget} 次 · 模型 ${MODEL} · 开始 ${timeLabel(Date.now())}`;
   $("#hint").hidden = false;
   $("#hint").textContent = "正在规划首轮实验…";
-  selected = 0;
   showView(false);
   setStatus("running", "运行中");
   renderTimeline([]);
+  $("#events").replaceChildren();
+  startClock(budget);
   try {
     const run = await request("/api/runs", {
       method: "POST",
@@ -299,12 +557,24 @@ $("#research").addEventListener("submit", async (event) => {
       body: JSON.stringify({ question, max_experiments: budget }),
     });
     activeRun = run.id;
+    rememberRun({ id: run.id, question, at: Date.now() });
     await follow(run.id);
   } catch (error) {
-    setStatus("failed", "运行失败");
-    $("#hint").hidden = false;
-    $("#hint").textContent = error.message;
+    failRun(error);
   } finally {
+    stopClock();
     $("#start").disabled = false;
   }
+}
+
+/* ---------- wiring ---------- */
+
+$("#evidence-tab").addEventListener("click", () => showView(false));
+$("#report-tab").addEventListener("click", () => showView(true));
+
+$("#research").addEventListener("submit", (event) => {
+  event.preventDefault();
+  beginRun($("#question").value.trim(), Number($("#budget").value));
 });
+
+renderHistory();

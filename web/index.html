@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>Research Agent · 推理实验工作台</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232fe3b0'/%3E%3Cpath d='M4.5 12h3l2-5 3.5 10 2.5-6 1.5 1h2' fill='none' stroke='%2304130e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
+  <noscript><p class="noscript">本工作台需要启用 JavaScript 才能发起实验并展示结果，请开启后刷新页面。</p></noscript>
+
   <header class="topbar">
     <div class="wrap topbar-inner">
       <div class="brand">
@@ -54,14 +57,23 @@
       </button>
     </form>
 
+    <section id="history" class="history" aria-label="最近运行" hidden>
+      <span class="history-label">最近运行</span>
+      <div id="history-list" class="history-list"></div>
+    </section>
+
     <div class="workspace">
       <section class="panel timeline">
         <div class="panel-head">
           <h2>实验时间线</h2>
           <span id="status" class="status" role="status" data-state="idle">待运行</span>
         </div>
+        <div id="progress" class="progress" hidden>
+          <div class="progress-track" aria-hidden="true"><i id="progress-fill"></i></div>
+          <span id="progress-text" class="progress-text"></span>
+        </div>
         <p id="context" class="context" hidden></p>
-        <p id="hint" class="hint muted">发起研究后，每一轮实验的选择依据会出现在这里。</p>
+        <p id="hint" class="hint">发起研究后，每一轮实验的选择依据会出现在这里。</p>
         <div id="events"></div>
       </section>
 
@@ -69,6 +81,7 @@
         <div class="view-bar">
           <button type="button" id="evidence-tab" class="view-button" aria-pressed="true" aria-controls="evidence">证据详情</button>
           <button type="button" id="report-tab" class="view-button" aria-pressed="false" aria-controls="result" disabled>研究报告</button>
+          <span id="report-hint" class="view-hint">完成可看</span>
         </div>
         <div id="evidence" class="view">
           <div class="empty-state">
