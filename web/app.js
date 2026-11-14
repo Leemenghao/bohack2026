@@ -10,6 +10,15 @@ let selected = 0;
 let activeRun = "";
 let runStatus = "idle";
 let runBudget = 3;
+let cloudBudgetLimit = 0;
+let runStartedLabel = "";
+
+function renderContext() {
+  const parts = [`预算 ${runBudget} 次`, `模型 ${MODEL}`];
+  if (cloudBudgetLimit) parts.push(`云端 ≤ ${cloudBudgetLimit} 次`);
+  if (runStartedLabel) parts.push(`开始 ${runStartedLabel}`);
+  $("#context").textContent = parts.join(" · ");
+}
 let startedAt = 0;
 let clock = null;
 
@@ -329,6 +338,9 @@ function renderTimeline(events) {
       }
     } else if (event.type === "source_fetched") {
       if (event.source_id) fetched.add(event.source_id);
+    } else if (event.type === "budget") {
+      cloudBudgetLimit = Number(event.limit_calls) || 0;
+      renderContext();
     }
   }
   renderRetrievals(searches, fetched);
@@ -593,6 +605,8 @@ async function follow(id) {
 async function beginRun(question, budget) {
   if (!question) return;
   runBudget = budget;
+  cloudBudgetLimit = 0;
+  runStartedLabel = timeLabel(Date.now());
   activeRun = "";
   experiments = [];
   selected = 0;
@@ -601,7 +615,7 @@ async function beginRun(question, budget) {
   $("#report-hint").hidden = false;
   $("#report-hint").textContent = "完成可看";
   $("#context").hidden = false;
-  $("#context").textContent = `预算 ${budget} 次 · 模型 ${MODEL} · 开始 ${timeLabel(Date.now())}`;
+  renderContext();
   $("#hint").hidden = false;
   $("#hint").textContent = "正在规划首轮实验…";
   showView(false);

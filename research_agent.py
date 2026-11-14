@@ -20,6 +20,7 @@ from langchain_core.messages import AIMessage
 from langchain_openai import ChatOpenAI
 
 from benchmark.prefix_cache import run_benchmark
+from budget import Budget
 
 ROOT = Path(__file__).resolve().parent
 CHECKPOINT = ROOT / "models" / "Qwen3-0.6B-4bit"
@@ -42,7 +43,8 @@ source_id 用 fetch_source 读取，再提出可检验的假设。用 [source_id
 """
 
 
-def build_agent(model, run_dir, max_experiments=3, on_event=None):
+def build_agent(model, run_dir, max_experiments=3, on_event=None, budget=None):
+    budget = budget or Budget()
     tavily_key = os.getenv("TAVILY_API_KEY", "").strip()
     evidence_tools = make_research_tools(run_dir, tavily_key, on_event)
 
@@ -89,11 +91,16 @@ def build_agent(model, run_dir, max_experiments=3, on_event=None):
     return create_deep_agent(
         model=model,
         tools=[*evidence_tools, benchmark_prefix_cache],
-        system_prompt=INSTRUCTIONS.replace("最多做三次", f"最多做 {max_experiments} 次").format(
-            search_scope="通用网页（Tavily）" if tavily_key else "arXiv 论文元数据（DataCite），可下载公开摘要",
+        system_prompt=(
+            INSTRUCTIONS.replace("最多做三次", f"最多做 {max_experiments} 次").format(
+                search_scope="通用网页（Tavily）" if tavily_key else "arXiv 论文元数据（DataCite），可下载公开摘要",
+            )
+            + "\n\n【云端预算】"
+            + budget.prompt_line()
+            + "每次调用云端都会消耗预算，请把调用留给真正需要的判断。"
         ),
         middleware=[
-            ModelCallLimitMiddleware(run_limit=8),
+            ModelCallLimitMiddleware(run_limit=budget.calls),
             ToolCallLimitMiddleware(tool_name="search_sources", run_limit=MAX_SEARCHES),
             ToolCallLimitMiddleware(tool_name="web_search", run_limit=MAX_SEARCHES),
             ToolCallLimitMiddleware(tool_name="fetch_source", run_limit=MAX_FETCHES),
@@ -102,11 +109,15 @@ def build_agent(model, run_dir, max_experiments=3, on_event=None):
     )
 
 
-def run_research(question, run_dir, max_experiments=3, on_event=None):
+def run_research(question, run_dir, max_experiments=3, on_event=None, cloud_budget=8, token_budget=0):
     load_dotenv(ROOT / ".env")
     key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     if not key:
         raise ValueError(f"Fill in DEEPSEEK_API_KEY in {ROOT / '.env'} first.")
+
+    budget = Budget(calls=cloud_budget, tokens=token_budget)
+    if on_event:
+        on_event({"type": "budget", **budget.snapshot()})
 
     model = ChatOpenAI(
         model=MODEL,
@@ -119,7 +130,7 @@ def run_research(question, run_dir, max_experiments=3, on_event=None):
         max_retries=0,
     )
     run_dir.mkdir(parents=True)
-    agent = build_agent(model, run_dir, max_experiments, on_event)
+    agent = build_agent(model, run_dir, max_experiments, on_event, budget)
     started = time.monotonic()
     result = agent.invoke({"messages": [{"role": "user", "content": question}]})
     report = result["messages"][-1].text
@@ -143,11 +154,31 @@ def run_research(question, run_dir, max_experiments=3, on_event=None):
         )
         report = f"{report.rstrip()}\n\n## 检索到的资料\n\n{references}"
     usage = {"input_tokens": 0, "output_tokens": 0}
+    cloud_calls = 0
     for message in result["messages"]:
-        if isinstance(message, AIMessage) and message.usage_metadata:
-            for name in usage:
-                usage[name] += message.usage_metadata[name]
-    summary = {"question": question, "model": MODEL, "usage": usage, "elapsed_seconds": round(time.monotonic() - started, 2)}
+        if isinstance(message, AIMessage):
+            cloud_calls += 1
+            if message.usage_metadata:
+                for name in usage:
+                    usage[name] += message.usage_metadata[name]
+    budget.used_calls = min(cloud_calls, budget.calls)
+    budget.spend_tokens(usage["input_tokens"] + usage["output_tokens"])
+    if budget.exhausted:
+        report = (
+            f"{report.rstrip()}\n\n## 运行预算\n\n"
+            f"云端调用 {budget.used_calls}/{budget.calls} 次、共 "
+            f"{usage['input_tokens'] + usage['output_tokens']} token，预算已耗尽，"
+            "按已有证据收尾；未完成的验证项见上文「未验证」部分。"
+        )
+    if on_event:
+        on_event({"type": "budget_end", **budget.snapshot()})
+    summary = {
+        "question": question,
+        "model": MODEL,
+        "usage": usage,
+        "elapsed_seconds": round(time.monotonic() - started, 2),
+        "budget": budget.snapshot(),
+    }
     (run_dir / "report.md").write_text(report + "\n")
     (run_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2))
     return {"report": report, **summary}
@@ -156,14 +187,21 @@ def run_research(question, run_dir, max_experiments=3, on_event=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("question")
+    parser.add_argument("--cloud-budget", type=int, default=8, help="单次研究允许的云端调用次数上限")
+    parser.add_argument("--token-budget", type=int, default=0, help="单次研究的 token 预算，0 表示不限")
     args = parser.parse_args()
     run_dir = ROOT / "runs" / uuid4().hex[:12]
     try:
-        result = run_research(args.question, run_dir)
+        result = run_research(
+            args.question,
+            run_dir,
+            cloud_budget=args.cloud_budget,
+            token_budget=args.token_budget,
+        )
     except ValueError as error:
         parser.exit(2, f"{error}\n")
     print(result["report"])
-    print(f"Run: {run_dir} | {result['usage']}")
+    print(f"Run: {run_dir} | {result['usage']} | budget: {result['budget']}")
 
 
 if __name__ == "__main__":

@@ -40,7 +40,12 @@ python benchmark/prefix_cache.py models/Qwen3-0.6B-4bit --workload shared
 
 # 完整研究：检索 → 假设 → 实测 → 决策 → 报告
 python research_agent.py "MLX-LM 的前缀缓存能否降低首 token 延迟？请实测"
+
+# 收紧云端预算：最多 5 次调用、2 万 token
+python research_agent.py "…" --cloud-budget 5 --token-budget 20000
 ```
+
+预算耗尽时，Agent 必须用已有证据收尾，并在报告末尾追加「运行预算」小节说明消耗情况。
 
 ## 起界面
 

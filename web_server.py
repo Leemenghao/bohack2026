@@ -19,13 +19,15 @@ runs = {}
 state_lock = Lock()
 
 
-def execute(run_id, question, budget):
+def execute(run_id, question, budget, cloud_budget=8):
     def on_event(event):
         with state_lock:
             runs[run_id]["events"].append(event)
 
     try:
-        result = run_research(question, ROOT / "runs" / run_id, budget, on_event)
+        result = run_research(
+            question, ROOT / "runs" / run_id, budget, on_event, cloud_budget=cloud_budget
+        )
     except Exception as error:
         # Provider errors can contain request metadata. Expose only the status or class.
         status = getattr(error, "status_code", None)
@@ -94,10 +96,17 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(size))
             question = payload["question"].strip()
             budget = payload["max_experiments"]
-            if not 0 < len(question) <= 2000 or type(budget) is not int or not 1 <= budget <= 3:
+            cloud_budget = payload.get("cloud_budget", 8)
+            if (
+                not 0 < len(question) <= 2000
+                or type(budget) is not int
+                or not 1 <= budget <= 3
+                or type(cloud_budget) is not int
+                or not 1 <= cloud_budget <= 20
+            ):
                 raise ValueError
         except (ValueError, KeyError, TypeError, AttributeError):
-            self.send_json(400, {"error": "请输入 1–2000 字的研究问题，实验预算为 1–3 次。"})
+            self.send_json(400, {"error": "请输入 1–2000 字的研究问题，实验预算 1–3 次，云端调用上限 1–20 次。"})
             return
         with state_lock:
             if any(run["status"] == "running" for run in runs.values()):
@@ -108,7 +117,7 @@ class Handler(BaseHTTPRequestHandler):
         if run_id is None:
             self.send_json(HTTPStatus.CONFLICT, {"error": "已有一项研究在运行。"})
             return
-        Thread(target=execute, args=(run_id, question, budget)).start()
+        Thread(target=execute, args=(run_id, question, budget, cloud_budget)).start()
         self.send_json(HTTPStatus.ACCEPTED, {"id": run_id})
 
 
