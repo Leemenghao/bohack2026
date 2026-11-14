@@ -30,7 +30,7 @@ class ExperimentDecisions:
             "remaining_cost_cny": remaining,
             "report_reserve_cny": round(reserve, 8) if reserve is not None else None,
             "remaining_calls": max(0, self.call_limit - usage["model_calls"]),
-            "report_reserve_calls": 1,
+            "report_reserve_calls": 2,
         }
 
     def record(self, action, reason, evidence_gap, *, origin, budget, parameters=None):
@@ -54,8 +54,8 @@ class ExperimentDecisions:
         pending = not previous or previous["experiment_ids"] != [self.latest["experiment_id"]]
         remaining = budget["remaining_cost_cny"]
         reserve = budget["report_reserve_cny"]
-        # One decision call (including experiment parameters) and one report.
-        needed = 2
+        # Reserve a decision, a report and a session summary.
+        needed = 3
         short = budget["remaining_calls"] < needed or (remaining is not None and reserve is not None and remaining < needed * reserve)
         if short and pending:
             self.record("finish", "剩余预算优先用于撰写报告，停止补测。",

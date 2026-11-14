@@ -11,7 +11,7 @@ import io
 import zipfile
 from pathlib import Path
 
-INCLUDE = ("report.md", "summary.json", "run.json", "resources.json")
+INCLUDE = ("report.md", "summary.json", "run.json", "resources.json", "session-summary.json")
 PATTERNS = ("experiment-*.json", "search-*.json", "source-*.json", "candidate-*.py", "memory-*.json")
 
 

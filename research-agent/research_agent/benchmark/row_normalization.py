@@ -114,6 +114,8 @@ def run_benchmark(code, suite="development"):
         case["speedup"] = case["baseline_ms"] / max(case["candidate_ms"], 1e-9)
     return {"summary": {"correct": all(case["correct"] for case in cases), "suite": suite, "cases": cases,
                         "code_sha256": hashlib.sha256(code.encode()).hexdigest(),
+                        "measurement": {"dtype": "float32", "warmups": 3, "repeats": 9, "calls_per_sample": 3,
+                                        "statistic": "median", "rtol": 2e-5, "atol": 2e-6},
                         "environment": {"python": platform.python_version(), "numpy": np.__version__,
                                         "machine": platform.machine(), "platform": platform.platform()},
                         "method": "float32; 3 warmups; 9 alternating paired repeats, 3 calls/sample; median; tolerance rtol=2e-5, atol=2e-6"}}

@@ -17,16 +17,22 @@ CREATE TABLE IF NOT EXISTS turns (
 );
 CREATE INDEX IF NOT EXISTS turns_session ON turns(session_id, created_at);
 CREATE INDEX IF NOT EXISTS turns_parent ON turns(parent_id);
+CREATE TABLE IF NOT EXISTS session_summaries (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id), source_run_id TEXT NOT NULL,
+    content TEXT NOT NULL, updated_at TEXT NOT NULL, model TEXT NOT NULL
+);
 """
 
 
 class ConversationStore:
-    def __init__(self, root):
+    def __init__(self, root, *, recover=True):
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
         with closing(self.connect()) as db, db:
             db.executescript(SCHEMA)
-        self.import_runs(recover=True)
+            if "shared" not in {row[1] for row in db.execute("PRAGMA table_info(sessions)")}:
+                db.execute("ALTER TABLE sessions ADD COLUMN shared INTEGER NOT NULL DEFAULT 0")
+        self.import_runs(recover=recover)
 
     def connect(self):
         db = sqlite3.connect(self.root / "conversations.sqlite3")
@@ -87,7 +93,7 @@ class ConversationStore:
         with closing(self.connect()) as db:
             return [dict(row) for row in db.execute(
                 """SELECT turns.id, turns.session_id, parent_id, question, task, created_at,
-                          status, mode, title, archived
+                          status, mode, title, archived, shared
                    FROM turns JOIN sessions ON sessions.id = turns.session_id
                    ORDER BY created_at DESC"""
             )]
@@ -104,9 +110,28 @@ class ConversationStore:
                 (session_id,),
             )]
 
-    def update_session(self, session_id, *, title=None, archived=None):
+    def update_session(self, session_id, *, title=None, archived=None, shared=None):
         with closing(self.connect()) as db, db:
             return bool(db.execute(
-                """UPDATE sessions SET title=COALESCE(?, title), archived=COALESCE(?, archived) WHERE id=?""",
-                (title, archived, session_id),
+                """UPDATE sessions SET title=COALESCE(?, title), archived=COALESCE(?, archived), shared=COALESCE(?, shared) WHERE id=?""",
+                (title, archived, shared, session_id),
             ).rowcount)
+
+    def save_summary(self, session_id, run_id, content, updated_at, model):
+        with closing(self.connect()) as db, db:
+            db.execute("INSERT OR IGNORE INTO sessions (id) VALUES (?)", (session_id,))
+            db.execute("INSERT OR REPLACE INTO session_summaries VALUES (?, ?, ?, ?, ?)",
+                       (session_id, run_id, content, updated_at, model))
+
+    def session_summary(self, session_id):
+        with closing(self.connect()) as db:
+            row = db.execute("""SELECT s.id, s.shared, s.archived, s.title, m.source_run_id, m.content, m.updated_at, m.model
+                FROM sessions s LEFT JOIN session_summaries m ON s.id=m.session_id WHERE s.id=?""", (session_id,)).fetchone()
+            return dict(row) if row else None
+
+    def search_summaries(self, query, exclude):
+        with closing(self.connect()) as db:
+            return [dict(row) for row in db.execute("""SELECT s.id, s.title, m.content, m.source_run_id, m.updated_at
+                FROM sessions s JOIN session_summaries m ON s.id=m.session_id
+                WHERE s.shared=1 AND s.archived=0 AND s.id!=? AND (m.content LIKE ? OR s.title LIKE ?)
+                ORDER BY m.updated_at DESC LIMIT 5""", (exclude, f"%{query[:200]}%", f"%{query[:200]}%"))]

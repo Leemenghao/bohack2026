@@ -112,7 +112,7 @@ class ResourceTest(unittest.TestCase):
         return make_experiment("classification", Path.cwd(), self.folder, ledger=self.ledger)
 
     def test_experiments_have_no_three_run_cap(self):
-        def complete(command, *args):
+        def complete(command, *args, **kwargs):
             Path(command[4]).write_text(json.dumps({"summary": {"metric": 1}, "resources": {"cpu_seconds": 0.1, "peak_process_rss_bytes": 100}}))
         experiment = self.experiment()
         with patch("research_agent.research.experiments.run_worker", side_effect=complete):

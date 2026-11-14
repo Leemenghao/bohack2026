@@ -4,7 +4,6 @@ import json
 import os
 import platform
 import signal
-import shlex
 import subprocess
 import sys
 import time
@@ -40,10 +39,10 @@ TASK_INSTRUCTIONS = {
 }
 
 
-def run_worker(command, root, cancel, timeout_seconds):
+def run_worker(command, root, cancel, timeout_seconds, *, env=None):
     """Stop the entire benchmark process group, including an MLX server."""
     process = subprocess.Popen(command, cwd=root, stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL, start_new_session=True)
+                               stderr=subprocess.DEVNULL, start_new_session=True, env=env)
     deadline = time.monotonic() + timeout_seconds
     try:
         while process.poll() is None:
@@ -99,14 +98,19 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
             on_event({"type": "started", **event})
         result = {}
         status = "completed"
-        if task == "kernel":
+        if task in ("kernel", "python"):
             source = run_dir / f"candidate-{experiment_id}.py"
             source.write_text(configuration["code"])
-            command = (f".venv/bin/python -m research_agent.benchmark.row_normalization {shlex.quote(str(source))}"
-                       f" --suite {configuration['suite']}")
+            command = f".venv/bin/python -m research_agent.research.sandbox {run_dir.name} {experiment_id}"
         try:
-            run_worker([sys.executable, "-m", "research_agent.research.worker", task,
-                        str(output), json.dumps(configuration)], root, ledger.cancel, min(timeout_seconds, 30) if task == "kernel" else timeout_seconds)
+            worker_config = {"source": str(source.resolve())} if task == "python" else configuration
+            command_args = [sys.executable, "-m", "research_agent.research.worker", task, str(output), json.dumps(worker_config)]
+            cwd, environment = root, None
+            if task in ("kernel", "python"):
+                from research_agent.research.sandbox import sandbox_command
+                command_args, cwd, environment = sandbox_command(command_args, root, run_dir, output)
+                event["execution"].update(isolation="macos-seatbelt", network="denied")
+            run_worker(command_args, cwd, ledger.cancel, min(timeout_seconds, 30) if task in ("kernel", "python") else timeout_seconds, env=environment)
             result = json.loads(output.read_text())
             if "error" in result:
                 status = "failed"
@@ -133,7 +137,7 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
             ledger.finish(identifier, status, artifact=artifact.name, result=evidence["summary"],
                           error=result.get("error"), **resources)
             evidence["resources"] = {**resources, "elapsed_seconds": ledger.entries[identifier]["elapsed_seconds"]}
-            if task == "kernel":
+            if task in ("kernel", "python"):
                 evidence["code"] = configuration["code"]
                 evidence["candidate"] = f"candidate-{experiment_id}.py"
                 evidence["budget"] = {"max_cost_cny": ledger.max_cost_cny,
@@ -166,4 +170,13 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
     if task == "kernel":
         from research_agent.research.kernel import make_kernel_tools
         return make_kernel_tools(record, run_dir, ledger, on_event)
-    return {"prefix_cache": benchmark_prefix_cache, "classification": benchmark_classification}[task]
+    def benchmark_python(code: str, reason: str) -> dict:
+        """Run Python in this session's sandbox, without network or host secrets. Write outputs in the working directory.
+
+        Installed packages are readable. Timeout is 30 seconds. Use fixed benchmark tools for performance comparisons.
+        """
+        if not code.strip() or len(code) > 16000 or not reason.strip():
+            return {"error": "Provide code up to 16000 characters and an experiment reason."}
+        return record({}, reason, {"code": code}, "")
+
+    return {"prefix_cache": benchmark_prefix_cache, "classification": benchmark_classification, "python": benchmark_python}[task]

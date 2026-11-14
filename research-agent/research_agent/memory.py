@@ -1,15 +1,13 @@
-"""Carry the previous run's conclusion into the next one.
+"""Carry an explicitly shared session digest into a CLI run.
 
 The track asks for research results that can "sustainably improve". Without
 memory every run starts from zero and may repeat an experiment that was already
-done. This module finds the most recent finished run and turns its report into a
-short prompt block.
+done. This module reads user-shared summaries and formats a short prompt block.
 
 Pure filesystem logic: no model, no network, so it is testable offline.
 """
 
 import re
-import json
 from pathlib import Path
 
 MAX_MEMORY_CHARS = 700
@@ -28,21 +26,15 @@ def list_runs(runs_root: Path) -> list[Path]:
 
 
 def load_previous(runs_root: Path, exclude: Path | None = None) -> dict | None:
-    """Return {run_id, text} for the newest run other than `exclude`."""
-    exclude = exclude.resolve() if exclude else None
-    for run_dir in list_runs(runs_root):
-        if exclude and run_dir.resolve() == exclude:
+    """Return the newest explicitly shared, non-archived session digest."""
+    if not (runs_root / "conversations.sqlite3").is_file():
+        return None
+    from research_agent.conversation_store import ConversationStore
+    store = ConversationStore(runs_root, recover=False)
+    for summary in store.search_summaries("", exclude.name if exclude else ""):
+        if exclude and summary["source_run_id"] == exclude.name:
             continue
-        summary_path = run_dir / "summary.json"
-        if summary_path.is_file():
-            try:
-                if json.loads(summary_path.read_text()).get("status", "complete") != "complete":
-                    continue
-            except (ValueError, AttributeError):
-                continue
-        text = (run_dir / "report.md").read_text(encoding="utf-8", errors="replace").strip()
-        if text:
-            return {"run_id": run_dir.name, "text": text}
+        return {"run_id": summary["source_run_id"], "text": summary["content"]}
     return None
 
 
@@ -65,7 +57,7 @@ def memory_block(previous: dict | None) -> str:
         return ""
     body = condense(re.sub(r"\n{3,}", "\n\n", previous["text"]))
     return (
-        "【上一次研究的结论】\n"
+        "【共享研究摘要】\n"
         f"来自运行 {previous['run_id']}，仅供参照：它是上一轮条件下的观察，不能当作本轮实测结果。\n"
         f"{body}\n"
         "本轮如果重复同一实验，请说明为什么需要重测；如果能沿用上一次的结论，请直接引用并说明依据。"
