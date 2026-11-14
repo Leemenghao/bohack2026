@@ -13,12 +13,14 @@ let runBudget = 3;
 let cloudBudgetLimit = 0;
 let memoryRunId = "";
 let runStartedLabel = "";
+let isHistorical = false;
 
 function renderContext() {
-  const parts = [`预算 ${runBudget} 次`, `模型 ${MODEL}`];
+  const parts = isHistorical ? [`历史运行 ${activeRun}`] : [`预算 ${runBudget} 次`, `模型 ${MODEL}`];
   if (cloudBudgetLimit) parts.push(`云端 ≤ ${cloudBudgetLimit} 次`);
   if (memoryRunId) parts.push(`参考上次 ${memoryRunId}`);
-  if (runStartedLabel) parts.push(`开始 ${runStartedLabel}`);
+  if (!isHistorical && runStartedLabel) parts.push(`开始 ${runStartedLabel}`);
+  $("#context").hidden = false;
   $("#context").textContent = parts.join(" · ");
 }
 let startedAt = 0;
@@ -195,8 +197,21 @@ function timeLabel(timestamp) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+let serverRuns = [];
+
+function historyEntries() {
+  if (serverRuns.length) {
+    return serverRuns.map((run) => ({
+      id: run.id,
+      question: run.question || "（未记录问题）",
+      at: (run.recorded_at || 0) * 1000,
+    }));
+  }
+  return loadHistory();
+}
+
 function renderHistory() {
-  const list = loadHistory();
+  const list = historyEntries();
   const section = $("#history");
   if (!list.length) {
     section.hidden = true;
@@ -213,10 +228,24 @@ function renderHistory() {
   }));
 }
 
+async function loadServerHistory() {
+  try {
+    const data = await request("/api/runs");
+    serverRuns = Array.isArray(data.runs) ? data.runs : [];
+  } catch {
+    serverRuns = [];
+  }
+  renderHistory();
+}
+
 async function openRun(id) {
   activeRun = id;
   selected = 0;
   experiments = [];
+  isHistorical = true;
+  cloudBudgetLimit = 0;
+  memoryRunId = "";
+  renderContext();
   $("#report-tab").disabled = true;
   $("#report-hint").hidden = false;
   $("#report-hint").textContent = "完成可看";
@@ -613,6 +642,7 @@ async function beginRun(question, budget) {
   runBudget = budget;
   cloudBudgetLimit = 0;
   memoryRunId = "";
+  isHistorical = false;
   runStartedLabel = timeLabel(Date.now());
   activeRun = "";
   experiments = [];
@@ -638,6 +668,7 @@ async function beginRun(question, budget) {
     });
     activeRun = run.id;
     rememberRun({ id: run.id, question, at: Date.now() });
+    loadServerHistory();
     await follow(run.id);
   } catch (error) {
     failRun(error);
@@ -657,4 +688,4 @@ $("#research").addEventListener("submit", (event) => {
   beginRun($("#question").value.trim(), Number($("#budget").value));
 });
 
-renderHistory();
+loadServerHistory();

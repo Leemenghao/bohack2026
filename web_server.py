@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from archive import build_archive
+from runview import list_recorded_runs, load_run_view
 
 # The agent stack (langchain / mlx) is imported lazily inside `execute` so the
 # workbench UI can be served and inspected without those dependencies installed.
@@ -34,6 +35,15 @@ def execute(run_id, question, budget, cloud_budget=8):
         result = run_research(
             question, ROOT / "runs" / run_id, budget, on_event, cloud_budget=cloud_budget
         )
+    except ModuleNotFoundError as error:
+        missing = error.name or "依赖"
+        update = {
+            "status": "failed",
+            "error": (
+                f"本机缺少运行依赖（{missing}）。本地推理需要 macOS + mlx-lm，"
+                "在其它平台可以先打开左侧的历史运行查看已记录的实验。"
+            ),
+        }
     except Exception as error:
         # Provider errors can contain request metadata. Expose only the status or class.
         status = getattr(error, "status_code", None)
@@ -98,9 +108,16 @@ class Handler(BaseHTTPRequestHandler):
                 with state_lock:
                     run = runs.get(run_id)
                     data = {**run, "events": list(run["events"])} if run else None
+                if not data:
+                    # Fall back to runs recorded on disk (survives restarts and works
+                    # on machines without the model stack).
+                    data = load_run_view(ROOT / "runs" / run_id)
                 if data:
                     self.send_json(200, data)
                     return
+        elif path == "/api/runs":
+            self.send_json(200, {"runs": list_recorded_runs(ROOT / "runs")})
+            return
         self.send_json(404, {"error": "找不到该资源。"})
 
     def do_POST(self):
