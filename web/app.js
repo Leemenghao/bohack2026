@@ -415,9 +415,9 @@ function renderHistory(search = false) {
     const openMenu = (x, y) => {
       sessionTarget = entry.id;
       const menu = $("#session-context");
-      menu.style.left = Math.min(x, innerWidth - 120) + "px";
-      menu.style.top = Math.min(y, innerHeight - 60) + "px";
       menu.showPopover();
+      menu.style.left = Math.max(8, Math.min(x, innerWidth - menu.offsetWidth - 8)) + "px";
+      menu.style.top = Math.max(8, Math.min(y, innerHeight - menu.offsetHeight - 8)) + "px";
       $("#rename-session").focus();
     };
     button.addEventListener("contextmenu", (event) => {
@@ -462,6 +462,24 @@ async function loadServerHistory() {
 }
 
 let sessionTarget = "";
+const sessionMenu = $("#session-context");
+function closeSessionMenu() {
+  if (sessionMenu.matches(":popover-open")) sessionMenu.hidePopover();
+}
+// WebKit can light-dismiss an auto popover on the same right-button release
+// that opened it. Handle dismissal explicitly so the menu remains clickable.
+document.addEventListener("pointerdown", (event) => {
+  if (!sessionMenu.contains(event.target)) closeSessionMenu();
+}, true);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeSessionMenu();
+});
+document.addEventListener("scroll", (event) => {
+  if (!sessionMenu.contains(event.target)) closeSessionMenu();
+}, true);
+window.addEventListener("blur", closeSessionMenu);
+window.addEventListener("resize", closeSessionMenu);
+
 async function updateSession(id, changes) {
   const turn = runsById.get(id);
   if (!turn?.session_id) return false;
