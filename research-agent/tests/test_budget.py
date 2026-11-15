@@ -2,7 +2,7 @@
 
 import unittest
 
-from budget import Budget
+from research_agent.budget import Budget
 
 
 class BudgetTest(unittest.TestCase):

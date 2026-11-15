@@ -4,7 +4,7 @@ from urllib.parse import quote, urlsplit
 
 
 DATACITE = "https://api.datacite.org/dois"
-TAVILY = "https://api.tavily.com"
+DEEPSEEK = "https://api.deepseek.com/v1/tools"
 MAX_CONTENT_CHARS = 60_000
 MAX_EVIDENCE_CHARS = 3_000
 
@@ -66,36 +66,59 @@ def find_sources(query):
     return [source for _, source in hits[:3]]
 
 
-def _tavily_request(endpoint, key, payload):
+def _deepseek_request(endpoint, key, payload, ledger=None, base_url=DEEPSEEK):
     # Imported lazily so the local collection works without network deps installed.
     import httpx
 
-    response = httpx.post(
-        f"{TAVILY}/{endpoint}",
-        headers={"Authorization": f"Bearer {key}"},
-        json=payload,
-        timeout=10,
-    )
-    response.raise_for_status()
-    return response.json()["results"]
+    if ledger:
+        ledger.stage = "evidence"
+    identifier = ledger.start(endpoint, provider="deepseek", **payload) if ledger else None
+    try:
+        response = httpx.post(
+            f"{base_url}/{endpoint}", headers={"Authorization": f"Bearer {key}"},
+            json=payload, timeout=15,
+        )
+        response.raise_for_status()
+        data = response.json()
+        billed = int(bool(data["results"] if endpoint == "search" else data.get("content")))
+    except Exception as error:
+        if ledger:
+            billed = 0 if isinstance(error, (httpx.HTTPStatusError, httpx.TimeoutException)) else None
+            ledger.finish(identifier, "failed", error=type(error).__name__, billable_requests=billed,
+                          estimated_cost_cny=0 if billed == 0 else None)
+        raise
+    if ledger:
+        price = ledger.pricing[f"{endpoint}_per_request"]
+        ledger.finish(identifier, "completed" if billed else "empty", billable_requests=billed,
+                      estimated_cost_cny=billed * price if price is not None else None)
+    return data
 
 
-def _datacite_get(url, params=None):
+def _datacite_get(url, params=None, ledger=None):
     import httpx
 
-    response = httpx.get(url, params=params, timeout=8)
-    response.raise_for_status()
-    return response.json()["data"]
+    identifier = ledger.start("search" if params else "fetch", provider="datacite", url=url,
+                              estimated_cost_cny=0, billable_requests=0) if ledger else None
+    try:
+        response = httpx.get(url, params=params, timeout=8)
+        response.raise_for_status()
+        data = response.json()["data"]
+    except Exception as error:
+        if ledger:
+            ledger.finish(identifier, "failed", error=type(error).__name__)
+        raise
+    if ledger:
+        ledger.finish(identifier)
+    return data
 
 
-def search_web(query, tavily_key=""):
-    """Search general web with Tavily, or arXiv metadata with the public DataCite API."""
+def search_web(query, deepseek_key="", ledger=None, base_url=DEEPSEEK):
+    """Search DeepSeek, or arXiv metadata without an API key."""
     sources = []
-    if tavily_key:
-        hits = _tavily_request("search", tavily_key, {
-            "query": query, "search_depth": "basic", "max_results": 3,
-            "auto_parameters": False, "include_raw_content": False,
-        })
+    if deepseek_key:
+        hits = _deepseek_request("search", deepseek_key, {
+            "query": query[:128], "count": 3, "need_content": False,
+        }, ledger, base_url)["results"]
         for hit in hits:
             url = hit["url"]
             link = urlsplit(url)
@@ -103,11 +126,11 @@ def search_web(query, tavily_key=""):
                 continue
             source_id = "web-" + sha256(url.encode()).hexdigest()[:12]
             sources.append({"source_id": source_id, "title": hit["title"], "url": url,
-                            "excerpt": hit["content"][:500], "provider": "tavily"})
+                            "excerpt": (hit.get("snippet") or hit.get("summary") or "")[:500], "provider": "deepseek"})
     else:
         hits = _datacite_get(DATACITE, {
             "query": f"prefix:10.48550 AND ({query})", "page[size]": 3, "sort": "relevance",
-        })
+        }, ledger)
         for hit in hits:
             paper = hit["attributes"]
             doi = paper["doi"].lower()
@@ -120,16 +143,14 @@ def search_web(query, tavily_key=""):
     return sources
 
 
-def fetch_web_source(source, tavily_key=""):
+def fetch_web_source(source, deepseek_key="", ledger=None, base_url=DEEPSEEK):
     """Read a previously discovered source. Return the content and its actual scope."""
-    if source["provider"] == "tavily":
-        results = _tavily_request("extract", tavily_key, {
-            "urls": [source["url"]], "extract_depth": "basic", "format": "markdown", "timeout": 8,
-        })
-        content = results[0]["raw_content"] if results else ""
+    if source["provider"] == "deepseek":
+        result = _deepseek_request("fetch", deepseek_key, {"url": source["url"]}, ledger, base_url)
+        content = result.get("content", "")
         return "webpage_text", (content or "").strip()
 
-    paper = _datacite_get(f"{DATACITE}/{quote(source['doi'], safe='/')}")["attributes"]
+    paper = _datacite_get(f"{DATACITE}/{quote(source['doi'], safe='/')}", ledger=ledger)["attributes"]
     abstract = next((item["description"] for item in paper["descriptions"]
                      if item["descriptionType"] == "Abstract"), "")
     return "paper_abstract", abstract.strip()

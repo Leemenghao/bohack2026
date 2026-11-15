@@ -7,7 +7,7 @@ import uuid
 import zipfile
 from pathlib import Path
 
-from archive import build_archive, run_files
+from research_agent.archive import build_archive, run_files
 
 RUNS_ROOT = Path(__file__).resolve().parent / ".runs"
 

@@ -7,7 +7,7 @@ import unittest
 import uuid
 from pathlib import Path
 
-from memory import MAX_MEMORY_CHARS, condense, list_runs, load_previous, memory_block
+from research_agent.memory import MAX_MEMORY_CHARS, condense, list_runs, load_previous, memory_block
 
 # Fixtures live inside the workspace: some sandboxes deny deleting the system temp
 # directory, which would otherwise turn a passing test into a teardown error.
@@ -37,17 +37,17 @@ class MemoryTest(unittest.TestCase):
         self.assertIsNone(load_previous(self.root))
         self.assertEqual(memory_block(None), "")
 
-    def test_newest_finished_run_wins(self):
-        self.make_run("old", "旧结论", age=100)
-        self.make_run("new", "新结论", age=1)
-        previous = load_previous(self.root)
-        self.assertEqual(previous["run_id"], "new")
-
-    def test_current_run_is_excluded(self):
-        self.make_run("older", "更早的结论", age=50)
-        current = self.make_run("current", "本轮报告", age=0)
-        previous = load_previous(self.root, exclude=current)
-        self.assertEqual(previous["run_id"], "older")
+    def test_only_shared_summaries_are_carried_into_cli(self):
+        from research_agent.conversation_store import ConversationStore
+        store = ConversationStore(self.root)
+        store.save_summary("000000000001", "000000000001", "共享摘要", "2026-11-14", "test")
+        store.save_summary("000000000002", "000000000002", "私有摘要", "2026-11-15", "test")
+        self.assertIsNone(load_previous(self.root))
+        store.update_session("000000000001", shared=True)
+        self.assertEqual(load_previous(self.root)["text"], "共享摘要")
+        self.assertIsNone(load_previous(self.root, exclude=self.root / "000000000001"))
+        store.update_session("000000000001", archived=True)
+        self.assertIsNone(load_previous(self.root))
 
     def test_run_without_report_is_ignored(self):
         (self.root / "unfinished").mkdir()

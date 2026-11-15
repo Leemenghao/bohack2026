@@ -6,5 +6,6 @@ __pycache__/
 *.pyc
 *.egg-info/
 runs/
-tests/.runs/
+research-agent/tests/.runs/
 /Research Agent.app/
+/LuLu Research.app/
