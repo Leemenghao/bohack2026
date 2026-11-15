@@ -58,6 +58,7 @@
     <section class="hero">
       <h1>从研究问题到<em>可验证的实验报告</em></h1>
       <p class="lede">提出一个研究问题，LuLu 会查资料、运行实验，并根据结果和预算决定是否补测，把实测结果和复跑方法整理成报告。</p>
+      <button type="button" id="load-long-example" class="view-button">试试长程算子研究</button>
     </section>
 
     <form id="research" class="composer" aria-label="发起研究">
@@ -183,9 +184,12 @@
         <div class="preset-buttons"><button type="button" class="view-button" data-preset="deepseek">DeepSeek</button><button type="button" class="view-button" data-preset="aiping">AI Ping</button><span class="muted">支持 OpenAI 兼容接口</span></div>
         <label>Base URL<input id="model-url" type="url" required autocomplete="off" placeholder="https://api.example.com/v1"></label>
         <label>模型 ID<input id="model-name" required maxlength="150" autocomplete="off" placeholder="填写服务商提供的模型 ID"></label>
+        <label>复核模型 ID · 可选<input id="review-name" maxlength="150" autocomplete="off" placeholder="留空则使用同一个模型"></label>
+        <p class="muted">主 Agent 和常规子任务使用日常模型。证据冲突或多次失败时，在预算允许的情况下使用复核模型。共用此接口与密钥。</p>
         <label>API Key<input id="model-key" type="password" autocomplete="new-password" placeholder="留空保留此地址的已存密钥" maxlength="4096"></label>
         <p id="model-key-status" class="muted"></p>
         <details class="price-settings"><summary>费用估算 · 可选</summary><p class="muted">元 / 百万 token。第三方价格与官方可能不同；不填写则标为费用未知，也无法按人民币准确控制预算。</p><div class="price-fields"><label>输入<input id="price-input" type="number" min="0" step="any"></label><label>输出<input id="price-output" type="number" min="0" step="any"></label><label>缓存命中<input id="price-cache" type="number" min="0" step="any"></label></div></details>
+        <details class="price-settings"><summary>复核模型费用 · 元 / 百万 token</summary><p class="muted">官方已知模型可留空。第三方单价未知时不自动升级模型。</p><div class="price-fields"><label>输入<input id="review-price-input" type="number" min="0" step="any"></label><label>输出<input id="review-price-output" type="number" min="0" step="any"></label><label>缓存命中<input id="review-price-cache" type="number" min="0" step="any"></label></div></details>
       </section>
       <section class="settings-section">
         <h3>资料检索</h3><p class="muted">使用 DeepSeek Search / Fetch 协议，独立于模型连接。</p>
@@ -213,7 +217,13 @@
   <div id="session-context" popover="manual" role="menu" aria-label="会话操作">
     <button type="button" id="rename-session" class="view-button">重命名</button>
     <button type="button" id="view-session-summary" class="view-button">会话摘要</button>
+    <button type="button" id="delete-session" class="view-button danger">删除会话</button>
   </div>
+  <dialog id="delete-dialog" class="app-dialog" aria-labelledby="delete-title">
+    <h2 id="delete-title">删除记录</h2><p id="delete-description"></p>
+    <p id="delete-error" role="alert"></p>
+    <div class="dialog-actions"><button type="button" id="cancel-delete" class="view-button">取消</button><button type="button" id="confirm-delete" class="view-button danger">删除</button></div>
+  </dialog>
   <dialog id="session-summary-dialog" class="app-dialog" aria-labelledby="session-summary-title">
     <div class="dialog-heading"><h2 id="session-summary-title">会话摘要</h2><button type="button" class="icon-button close-dialog" aria-label="关闭会话摘要">✕</button></div>
     <p id="session-summary-meta" class="muted"></p>

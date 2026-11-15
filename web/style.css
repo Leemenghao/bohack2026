@@ -973,3 +973,7 @@ button:focus-visible { outline-offset: 2px; }
 .session-share { display: flex; gap: 10px; align-items: center; font: inherit; margin: 22px 0 12px; letter-spacing: normal; }
 #session-context { min-width: 130px; }
 #session-context button { display: block; width: 100%; text-align: left; }
+
+.view-button.danger { color: var(--danger, #b65e57); }
+#delete-dialog { max-width: 480px; }
+.timeline-group[data-kind="delegation"] { border-left-color: #7298ba; }

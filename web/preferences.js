@@ -23,8 +23,10 @@
       keyStatus(kind);
     }
     field("model-name").value = config.model.name;
+    field("review-name").value = config.model.review_name || "";
     for (const [suffix, key] of [["input", "input"], ["output", "output"], ["cache", "cache_read"]]) {
       field(`price-${suffix}`).value = config.model.prices?.[key] ?? "";
+      field(`review-price-${suffix}`).value = config.model.review_prices?.[key] ?? "";
     }
   }
 
@@ -47,16 +49,19 @@
   dialog.querySelectorAll("[data-preset]").forEach((button) => button.addEventListener("click", () => {
     const official = button.dataset.preset === "deepseek";
     field("model-url").value = official ? "https://api.deepseek.com" : "https://aiping.cn/api/v1";
-    field("model-name").value = official ? "deepseek-flash" : "";
+    field("model-name").value = official ? "deepseek-flash" : "DeepSeek-V4.1-Flash-1017";
+    field("review-name").value = official ? "deepseek-v4-pro" : "DeepSeek-V4-Pro-0813";
     field("model-key").value = "";
     for (const suffix of ["input", "output", "cache"]) field(`price-${suffix}`).value = "";
+    for (const suffix of ["input", "output", "cache"]) field(`review-price-${suffix}`).value = "";
     keyStatus("model");
     if (!official) field("model-key-status").textContent = "保存时可转存本机 .env 中的 AIPING_API_KEY；请按服务商填写模型 ID。";
   }));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const values = ["input", "output", "cache"].map((suffix) => field(`price-${suffix}`).value);
-    if (values.some(Boolean) && values.some((v) => v === "")) {
+    const reviewValues = ["input", "output", "cache"].map((suffix) => field(`review-price-${suffix}`).value);
+    if ([values, reviewValues].some((items) => items.some(Boolean) && items.some((v) => v === ""))) {
       message.textContent = "请完整填写三项单价，或全部留空。";
       return;
     }
@@ -65,6 +70,8 @@
       base_url: field(`${kind}-url`).value.trim(), api_key: field(`${kind}-key`).value.trim(),
     };
     payload.model.name = field("model-name").value.trim();
+    payload.model.review_name = field("review-name").value.trim();
+    payload.model.review_prices = reviewValues.some(Boolean) ? { input: +reviewValues[0], output: +reviewValues[1], cache_read: +reviewValues[2] } : null;
     payload.model.prices = values.some(Boolean) ? { input: +values[0], output: +values[1], cache_read: +values[2] } : null;
     const submit = form.querySelector("button[type=submit]");
     submit.disabled = true;

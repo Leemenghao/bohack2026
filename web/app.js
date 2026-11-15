@@ -79,7 +79,6 @@ divider.addEventListener("keydown", (event) => {
     : conversationShare + (event.key === increase ? 5 : -5));
 });
 const number = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 });
-const MODEL = "deepseek-flash";
 const HISTORY_KEY = "bohack.recent-runs";
 const HISTORY_MAX = 5;
 const HISTORY_PAGE_SIZE = 12;
@@ -101,8 +100,11 @@ let initialAttachments = [];
 const statusLabels = { running: "运行中", complete: "已完成", failed: "失败", interrupted: "已中断", cancelled: "已取消", stopped: "已停止" };
 
 function renderContext() {
-  $("#run-question").replaceChildren(...renderMarkdown(runQuestion));
-  const parts = isHistorical ? [`历史运行 ${activeRun}`] : ["本地实验不限次数", `模型 ${MODEL}`];
+  if ($("#run-question").dataset.question !== runQuestion) {
+    $("#run-question").replaceChildren(...renderMarkdown(runQuestion));
+    $("#run-question").dataset.question = runQuestion;
+  }
+  const parts = isHistorical ? [`历史运行 ${activeRun}`] : ["实验不限次数", "模型与子任务共用预算"];
   if (cloudBudgetLimit) parts.push(`云端 ≤ ${cloudBudgetLimit} 次`);
   if (memoryRunId) parts.push(`参考上次 ${memoryRunId}`);
   if (!isHistorical && runStartedLabel) parts.push(`开始 ${runStartedLabel}`);
@@ -474,11 +476,40 @@ document.addEventListener("pointerdown", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeSessionMenu();
 });
-document.addEventListener("scroll", (event) => {
+document.addEventListener("wheel", (event) => {
   if (!sessionMenu.contains(event.target)) closeSessionMenu();
 }, true);
 window.addEventListener("blur", closeSessionMenu);
 window.addEventListener("resize", closeSessionMenu);
+
+let pendingDelete;
+function askDelete(url, description, sessionId = null) {
+  closeSessionMenu();
+  pendingDelete = { url, sessionId };
+  $("#delete-description").textContent = description;
+  $("#delete-error").textContent = "";
+  $("#delete-dialog").showModal();
+  $("#cancel-delete").focus();
+}
+$("#cancel-delete").addEventListener("click", () => $("#delete-dialog").close());
+$("#delete-session").addEventListener("click", () => {
+  const turn = runsById.get(sessionTarget);
+  if (turn?.session_id) askDelete(`/api/sessions/${turn.session_id}`,
+    "删除整个会话及全部轮次？记录将移入本机 .trash 回收目录，不再显示或供其他会话检索。已经读入其他会话的内容不会撤回。", turn.session_id);
+});
+$("#confirm-delete").addEventListener("click", async () => {
+  const target = pendingDelete;
+  $("#confirm-delete").disabled = true;
+  try {
+    await request(target.url, { method: "DELETE" });
+    const reset = target.sessionId && runsById.get(activeRun)?.session_id === target.sessionId;
+    $("#delete-dialog").close();
+    if (reset) $("#new-research").click();
+    await loadServerHistory();
+    if (!target.sessionId && activeRun) await openRun(activeRun);
+  } catch (error) { $("#delete-error").textContent = error.message; }
+  finally { $("#confirm-delete").disabled = false; }
+});
 
 async function updateSession(id, changes) {
   const turn = runsById.get(id);
@@ -671,17 +702,19 @@ function revealInspector() {
   ($("#result").hidden ? $("#evidence-tab") : $("#report-tab")).focus({ preventScroll: true });
 }
 
-const milestoneLabels = { plan: "研究计划", hypothesis: "待验证假设", verification: "验证决定", revision: "结论修正", decision: "预算决策", memory: "会话记忆" };
+const milestoneLabels = { plan: "研究计划", hypothesis: "待验证假设", verification: "验证决定", revision: "结论修正", decision: "预算决策", memory: "会话记忆", delegation: "子 Agent 分工" };
 const decisionLabels = { retest: "复测", change_direction: "换验证方向", finish: "结束并生成报告" };
 const timelineGroups = {
   preparation: "研究准备",
   search: "资料检索",
   experiment: "实验",
   decision: "结果与判断",
+  delegation: "分工与模型调度",
 };
 const milestoneGroups = {
   plan: "preparation", hypothesis: "preparation",
   verification: "decision", revision: "decision", decision: "decision", memory: "decision",
+  delegation: "delegation",
 };
 
 function renderMilestone(event) {
@@ -689,6 +722,11 @@ function renderMilestone(event) {
   let title = milestoneLabels[event.stage];
   if (event.stage === "decision") title += " · " + (decisionLabels[event.action] || event.action);
   node.append(element("summary", title), element("p", event.summary, "muted"));
+  if (event.stage === "delegation" && /^delegation-[a-f0-9]{8}\.json$/.test(event.artifact || "")) {
+    const link = element("a", "查看子任务结果", "view-button");
+    link.href = `/api/runs/${activeRun}/${event.artifact}`;
+    node.append(link);
+  }
   if (event.stage === "memory") {
     node.append(element("p", `适用条件：${event.conditions} · 模型提炼，未经人工审核，仅当前会话可用。`, "muted"));
   }
@@ -832,6 +870,12 @@ function renderEvidence() {
   const order = experiment.cache_first ? "先开后关" : "先关后开";
   const head = element("div", "", "evidence-head");
   head.append(element("h3", experimentTitle(experiment, selected)));
+  const remove = element("button", "删除实验", "view-button danger");
+  remove.type = "button";
+  remove.disabled = runStatus === "running";
+  remove.addEventListener("click", () => askDelete(`/api/runs/${activeRun}/experiments/${experiment.experiment_id}`,
+    "删除这次实验记录及候选代码？文件将移入本机 .trash 回收目录。已发生的资源用量保留，报告会标注证据已删除，会话摘要需重新生成。"));
+  head.append(remove);
   const classification = experiment.task === "classification";
   if (experiment.task === "prefix_cache") head.append(element("span", order, "tag"));
   panel.replaceChildren(head, element("p", experiment.reason, "reason"));
@@ -857,10 +901,10 @@ function renderEvidence() {
     const wrapper = element("div", "", "table-scroll");
     const table = element("table");
     const header = table.createTHead().insertRow();
-    for (const label of ["输入规模", "基线 ms", "候选 ms", "加速比", "最大误差"]) header.append(element("th", label));
+    for (const label of ["输入规模", "布局", "基线 ms", "候选 ms", "加速比", "最大误差"]) header.append(element("th", label));
     for (const item of stats.cases || []) {
       const row = table.insertRow();
-      for (const value of [item.shape.join(" × "), item.baseline_ms?.toFixed(4) ?? "—",
+      for (const value of [item.shape.join(" × "), {strided: "跨列切片", transposed: "转置视图"}[item.layout] || "连续", item.baseline_ms?.toFixed(4) ?? "—",
                           item.candidate_ms?.toFixed(4) ?? "—", item.speedup?.toFixed(2) ?? "—",
                           item.max_abs_error?.toExponential(2) ?? "未通过"]) row.append(element("td", value));
     }
@@ -1265,6 +1309,7 @@ async function beginRun(question, attachments = initialAttachments) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, attachments, mode: $("#initial-mode").value,
+        cloud_budget: question === longExample?.question ? longExample.cloud_budget : undefined,
         max_cost_cny: $("#cost-budget").value ? Number($("#cost-budget").value) : null }),
     });
     if (version !== viewVersion) return;
@@ -1409,6 +1454,19 @@ const composers = {
 };
 
 /* ---------- wiring ---------- */
+
+let longExample;
+$("#load-long-example").addEventListener("click", async () => {
+  try {
+    longExample = await request("/api/examples/kernel");
+    $("#question").value = longExample.question;
+    $("#question").dispatchEvent(new Event("input", { bubbles: true }));
+    $("#initial-mode").value = "research";
+    $("#initial-mode").dispatchEvent(new Event("change"));
+    $("#cost-budget").value = longExample.max_cost_cny;
+    $("#question").focus();
+  } catch (error) { $("#session-error").textContent = error.message; $("#session-error").hidden = false; }
+});
 
 $("#new-research").addEventListener("click", () => {
   ++viewVersion;

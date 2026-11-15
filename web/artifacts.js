@@ -3,7 +3,7 @@
   const content = document.querySelector("#artifact-content");
   const read = document.querySelector("#artifact-reading");
   const raw = document.querySelector("#artifact-raw");
-  const labels = {summary: "测量结果", configuration: "实验配置", resources: "资源使用", environment: "运行环境",
+  const labels = {role: "角色", routing: "模型调度", answer: "子任务结果", artifacts: "输入证据", trigger: "触发原因", allowed: "预算许可", model: "模型", summary: "测量结果", configuration: "实验配置", resources: "资源使用", environment: "运行环境",
     requests: "请求记录", cases: "输入规模与结果", samples_ms: "采样耗时 ms", code: "候选代码", reason: "实验目的",
     content: "资料正文", sources: "检索结果", query: "检索词", status: "状态", task: "任务", experiment_id: "实验 ID",
     code_sha256: "代码指纹", reproduce_from_project_root: "复跑命令", execution: "执行环境", measurement: "测量设置",
@@ -56,7 +56,7 @@
     const link = event.target.closest("a[href]");
     if (!link || link.hasAttribute("download")) return;
     const url = new URL(link.href, location.href);
-    const match = url.pathname.match(/^\/api\/runs\/[a-f0-9]{12}\/((?:(?:experiment|search|source|memory)-[a-f0-9]{8}\.json)|(?:candidate-[a-f0-9]{8}\.py)|report\.md|resources\.json|summary\.json|session-summary\.json)$/);
+    const match = url.pathname.match(/^\/api\/runs\/[a-f0-9]{12}\/((?:(?:experiment|search|source|memory|delegation)-[a-f0-9]{8}\.json)|(?:candidate-[a-f0-9]{8}\.py)|report\.md|resources\.json|summary\.json|session-summary\.json)$/);
     if (url.origin !== location.origin || !match) return;
     event.preventDefault(); request?.abort(); request = new AbortController();
     filename = match[1]; text = "";

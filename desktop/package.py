@@ -1,6 +1,7 @@
 """Build a relocatable Apple Silicon app and a drag-to-install DMG."""
 import hashlib
 import platform
+import plistlib
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,8 @@ DIST = ROOT / "desktop" / "dist"
 
 
 def main():
+    with (ROOT / "desktop/Info.plist").open("rb") as stream:
+        version = plistlib.load(stream)["CFBundleShortVersionString"]
     if sys.platform != "darwin" or platform.machine() != "arm64" or sys.version_info[:2] != (3, 12):
         raise SystemExit("Build on Apple Silicon using the project Python 3.12 environment.")
     base = Path(sys.base_prefix).resolve()
@@ -43,7 +46,7 @@ def main():
                 raise RuntimeError(f"External symlink in app: {path.relative_to(app)}")
         (volume / "Applications").symlink_to("/Applications")
         (volume / "安装说明.txt").write_text(
-            "LuLu Research 0.1.0\n\n"
+            f"LuLu Research {version}\n\n"
             "适用 Apple Silicon Mac 与 macOS 26 或更新版本。\n"
             "将 LuLu Research.app 拖入 Applications，然后从应用程序中打开。\n"
             "Python 与运行依赖已内置，无需安装 uv 或保留源码仓库。\n"
@@ -64,7 +67,7 @@ def main():
                        cwd=temporary, env=environment, check=True)
         # The import probe must not become part of the distributed volume.
         shutil.rmtree(volume / "probe-data", ignore_errors=True)
-        image = DIST / "LuLu-Research-0.1.0-macOS-arm64.dmg"
+        image = DIST / f"LuLu-Research-{version}-macOS-arm64.dmg"
         subprocess.run(["hdiutil", "create", "-ov", "-volname", "LuLu Research", "-srcfolder", str(volume),
                         "-format", "UDZO", str(image)], check=True)
         destination = DIST / app.name

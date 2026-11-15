@@ -34,7 +34,7 @@
       const detail = node("details", undefined, "usage-experiment");
       const heading = node("summary");
       const label = {kernel: "算子优化", classification: "分类实验", prefix_cache: "前缀缓存", python: "沙箱分析"}[entry.task] || "实验";
-      heading.append(node("span", `${String(index + 1).padStart(2, "0")}  ${label}`),
+      heading.append(node("span", `${String(index + 1).padStart(2, "0")}  ${label}${entry.record_deleted ? " · 记录已删除" : ""}`),
         node("span", `${statuses[entry.status] || entry.status} · ${seconds(entry.elapsed_seconds)}`, "muted"));
       const metrics = node("dl", undefined, "usage-metrics");
       const execution = entry.execution;
@@ -61,7 +61,7 @@
       const row = node("tr");
       const cell = node("td");
       cell.append(node("strong", entry.kind === "model" ? entry.model : entry.kind === "search" ? "搜索" : "抓取"),
-        node("small", `${stages[entry.stage] || entry.stage} · ${statuses[entry.status] || entry.status}`));
+        node("small", `${entry.purpose?.startsWith("specialist:") ? "子 Agent · " + entry.purpose.split(":")[1] : stages[entry.stage] || entry.stage} · ${statuses[entry.status] || entry.status}`));
       const tokens = entry.kind === "model" ? `入 ${number(entry.input_tokens)} / 出 ${number(entry.output_tokens)}\n缓存命中 ${number(entry.cached_tokens)}` : "—";
       row.append(cell, node("td", tokens), node("td", seconds(entry.elapsed_seconds)), node("td", money(entry.estimated_cost_cny)));
       body.append(row);
