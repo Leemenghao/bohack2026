@@ -30,11 +30,12 @@ class RunStopped(Exception):
 
 
 class ResourceLedger:
-    def __init__(self, run_dir, *, cancel=None, max_cost_cny=None, on_event=None, pricing=None):
+    def __init__(self, run_dir, *, cancel=None, max_cost_cny=None, on_event=None, pricing=None, max_model_calls=None):
         self.pricing = pricing if pricing is not None else PRICING
         self.path = run_dir / "resources.json"
         self.cancel = cancel or Event()
         self.max_cost_cny = max_cost_cny
+        self.max_model_calls = max_model_calls
         self.on_event = on_event
         self.stage = "plan"
         self.stop_reason = ""
@@ -59,6 +60,8 @@ class ResourceLedger:
         with self.lock:
             if check:
                 self.check()
+            if kind == "model" and self.max_model_calls is not None and self.summary()["model_calls"] >= self.max_model_calls:
+                raise RunStopped("call_limit")
             identifier = uuid4().hex
             self.starts[identifier] = time.monotonic()
             self.entries[identifier] = {

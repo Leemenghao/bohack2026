@@ -102,6 +102,10 @@ class Handler(BaseHTTPRequestHandler):
                 history = store.history()
             self.send_json(200, {"runs": history})
             return
+        if path == "/api/examples/kernel":
+            from research_agent.demo import QUESTION
+            self.send_json(200, {"question": QUESTION, "cloud_budget": 40, "max_cost_cny": 2})
+            return
         if path == "/api/settings":
             try:
                 from research_agent.settings import public_settings
@@ -141,7 +145,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         match = re.fullmatch(
-            r"/api/runs/([a-f0-9]{12})(?:/((?:experiment|search|source)-[a-f0-9]{8}\.json|report\.md|resources\.json|summary\.json|session-summary\.json|candidate-[a-f0-9]{8}\.py|memory-[a-f0-9]{8}\.json))?",
+            r"/api/runs/([a-f0-9]{12})(?:/((?:experiment|search|source|delegation)-[a-f0-9]{8}\.json|report\.md|resources\.json|summary\.json|session-summary\.json|candidate-[a-f0-9]{8}\.py|memory-[a-f0-9]{8}\.json))?",
             path,
         )
         if match:
@@ -261,8 +265,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(400, {"error": "每轮最多添加 3 份 TXT、MD、CSV、JSON 文本，每份最多 3,000 字。"})
             return
         attachments = [{key: file[key] for key in ("name", "content")} for file in attachments]
-        if type(cloud_budget) is not int or not 1 <= cloud_budget <= 20:
-            self.send_json(400, {"error": "云端调用上限为 1–20 次。"})
+        if type(cloud_budget) is not int or not 1 <= cloud_budget <= 64:
+            self.send_json(400, {"error": "云端调用上限为 1–64 次，所有子 Agent 共用此额度。"})
             return
         task = payload.get("task")
         if "task" not in payload:
@@ -305,6 +309,34 @@ class Handler(BaseHTTPRequestHandler):
         Thread(target=execute, args=(run_id, question, task, cloud_budget, max_cost_cny, parent_id, mode,
                                      attachments)).start()
         self.send_json(HTTPStatus.ACCEPTED, {"id": run_id})
+
+    def do_DELETE(self):
+        if not self.is_local_request():
+            self.send_json(403, {"error": "请从本地工作台删除记录。"})
+            return
+        session = re.fullmatch(r"/api/sessions/([a-f0-9]{12})", self.path)
+        experiment = re.fullmatch(r"/api/runs/([a-f0-9]{12})/experiments/([a-f0-9]{8})", self.path)
+        if not session and not experiment:
+            self.send_json(404, {"error": "找不到该删除接口。"})
+            return
+        from research_agent.deletion import delete_session, delete_experiment
+        with state_lock:
+            if runs:
+                self.send_json(409, {"error": "请等待当前研究结束或停止后再删除，避免证据在使用中被移除。"})
+                return
+            try:
+                store.import_runs()
+                if session:
+                    delete_session(store, session[1])
+                else:
+                    delete_experiment(store, experiment[1], experiment[2])
+            except FileNotFoundError:
+                self.send_json(404, {"error": "记录不存在或已经删除。"})
+                return
+            except OSError:
+                self.send_json(500, {"error": "删除未完成，请检查目录权限。"})
+                return
+        self.send_json(200, {"deleted": True})
 
     def read_payload(self):
         size = int(self.headers.get("Content-Length", "0"))

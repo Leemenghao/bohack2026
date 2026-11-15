@@ -70,15 +70,28 @@ def load_candidate(code):
 
 
 def run_benchmark(code, suite="development"):
-    if suite not in {"development", "validation"}:
+    if suite not in {"development", "validation", "layout_development", "layout_validation"}:
         raise ValueError("Unknown suite")
     candidate = load_candidate(code)
     baseline = load_candidate(BASELINE)
-    rng = np.random.default_rng(42 if suite == "development" else 731)
-    shapes = [(32, 64), (256, 256), (1024, 512)] if suite == "development" else [(17, 33), (257, 129), (2048, 256)]
+    development = suite.endswith("development")
+    layout_study = suite.startswith("layout_")
+    rng = np.random.default_rng(42 if development else 731)
+    shapes = [(32, 64), (256, 256), (1024, 512)] if development else [(17, 33), (257, 129), (2048, 256)]
+    if layout_study:
+        shapes = ([(1024, 512), (4096, 512), (512, 4096), (8192, 128), (128, 8192), (2048, 2048)]
+                  if development else [(1025, 513), (4097, 257), (257, 4097), (8193, 129), (129, 8193), (2049, 1025)])
+    workloads = [(shape, layout) for shape in shapes for layout in
+                 (("contiguous", "strided", "transposed") if layout_study else ("contiguous",))]
+    repeats = 15 if layout_study else 9
     cases = []
-    for shape in shapes:
-        x = rng.normal(size=shape).astype(np.float32)
+    for shape, layout in workloads:
+        columns = shape[1] * (2 if layout == "strided" else 1)
+        x = rng.normal(size=(shape[0], columns)).astype(np.float32)
+        if layout == "strided":
+            x = x[:, ::2]
+        elif layout == "transposed":
+            x = rng.normal(size=shape[::-1]).astype(np.float32).T
         x[0] = 0
         x[1] *= 1e-14
         x.setflags(write=False)
@@ -92,7 +105,8 @@ def run_benchmark(code, suite="development"):
         except Exception as exc:
             return {"summary": {"correct": False, "suite": suite, "error": f"{type(exc).__name__}: {str(exc)[:160]}",
                                 "cases": cases, "code_sha256": hashlib.sha256(code.encode()).hexdigest()}}
-        case = {"shape": list(shape), "correct": bool(valid), "max_abs_error": error}
+        case = {"shape": list(shape), "layout": layout, "strides_bytes": list(x.strides),
+                "correct": bool(valid), "max_abs_error": error}
         cases.append(case)
         if not valid:
             continue
@@ -100,7 +114,7 @@ def run_benchmark(code, suite="development"):
         for _ in range(3):
             baseline(x)
             candidate(x)
-        for repeat in range(9):
+        for repeat in range(repeats):
             order = [("baseline", baseline), ("candidate", candidate)]
             if repeat % 2:
                 order.reverse()
@@ -114,16 +128,16 @@ def run_benchmark(code, suite="development"):
         case["speedup"] = case["baseline_ms"] / max(case["candidate_ms"], 1e-9)
     return {"summary": {"correct": all(case["correct"] for case in cases), "suite": suite, "cases": cases,
                         "code_sha256": hashlib.sha256(code.encode()).hexdigest(),
-                        "measurement": {"dtype": "float32", "warmups": 3, "repeats": 9, "calls_per_sample": 3,
+                        "measurement": {"dtype": "float32", "warmups": 3, "repeats": repeats, "calls_per_sample": 3,
                                         "statistic": "median", "rtol": 2e-5, "atol": 2e-6},
                         "environment": {"python": platform.python_version(), "numpy": np.__version__,
                                         "machine": platform.machine(), "platform": platform.platform()},
-                        "method": "float32; 3 warmups; 9 alternating paired repeats, 3 calls/sample; median; tolerance rtol=2e-5, atol=2e-6"}}
+                        "method": f"float32; 3 warmups; {repeats} alternating paired repeats, 3 calls/sample; median; tolerance rtol=2e-5, atol=2e-6"}}
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("candidate", type=Path)
-    parser.add_argument("--suite", choices=("development", "validation"), default="validation")
+    parser.add_argument("--suite", choices=("development", "validation", "layout_development", "layout_validation"), default="validation")
     args = parser.parse_args()
     print(json.dumps(run_benchmark(args.candidate.read_text(), args.suite), ensure_ascii=False, indent=2))

@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from research_agent.research.ledger import RunStopped
 from research_agent.paths import replay_command
+from research_agent.research.evidence import compact_evidence
 
 CHECKPOINT_PATH = "models/Qwen3-0.6B-4bit"
 BENCHMARK_LOCK = Lock()
@@ -152,7 +153,7 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
             if on_event:
                 on_event({"type": "completed" if status == "completed" else "experiment_failed", **evidence})
             ledger.stage = "verification"
-        return evidence
+        return compact_evidence(evidence)
 
     def benchmark_prefix_cache(workload: Literal["shared", "different"], reason: str, cache_first: bool = False) -> dict:
         """Compare cache off and on on shared or different prefixes. Explain the experiment choice."""

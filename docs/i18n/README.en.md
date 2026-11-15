@@ -81,7 +81,7 @@ The shared workspace for a session lives at `runs/<session_id>/workspace/`. Turn
 
 LuLu is an evolving local workbench. Models and search still use online APIs. Generated code runs through macOS Seatbelt for up to 30 seconds without network or host-secret access. Fixed classification and MLX tools run in the trusted backend outside the generic code sandbox.
 
-Costs cover known prices and are estimates, not invoices or hard spending caps. GPU time is not measured. SSH execution, cloud synchronization, automatic model routing, and cross-platform sandboxes are not implemented.
+Costs cover known prices and are estimates, not invoices or hard spending caps. GPU time is not measured. Budget-gated specialists can use a review model after failures or conflicting evidence. Cost savings have not yet been established through controlled comparisons. SSH execution, cloud synchronization, and cross-platform sandboxes are not implemented.
 
 [Development and configuration guide in Chinese](../../research-agent/docs/development.md) · [Backend tools](../../research-agent/research_agent/research/README.md)
 

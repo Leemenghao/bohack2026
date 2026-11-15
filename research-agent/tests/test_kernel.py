@@ -30,6 +30,14 @@ class KernelTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_code(code)
 
+    def test_layout_suite_has_independent_shapes_and_three_memory_layouts(self):
+        code = "def normalize(x):\n    return x / np.maximum(np.sqrt(np.einsum('ij,ij->i', x, x))[:,None], 1e-12)"
+        result = run_benchmark(code, "layout_validation")["summary"]
+        self.assertTrue(result["correct"])
+        self.assertEqual(len(result["cases"]), 18)
+        self.assertEqual({case["layout"] for case in result["cases"]}, {"contiguous", "strided", "transposed"})
+        self.assertTrue(all(len(case["samples_ms"]["candidate"]) == 15 for case in result["cases"]))
+
     def test_followup_owns_same_workspace(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

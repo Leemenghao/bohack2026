@@ -32,17 +32,20 @@ def make_kernel_tools(record, run_dir, ledger, on_event):
         ledger.check()
         return {
             "workspace": str(workspace), "baseline": BASELINE,
+            "task_origin": {"url": "https://github.com/ScalingIntelligence/KernelBench/blob/main/KernelBench/level1/39_L2Norm_.py",
+                            "scope": "Inspired by KernelBench level 1 problem 39. This is a CPU/NumPy adaptation with smaller inputs and zero-row protection, not an official KernelBench score."},
             "contract": "normalize(x): float32 2D array; each row divided by max(L2 norm, 1e-12); input is read-only; output same shape/dtype.",
             "code_rules": "One def normalize(x), no imports. np available. Calls: " + ", ".join(sorted(FUNCTIONS))
                           + ", range, len; x.shape, x.dtype; arithmetic/indexing/for/if. No filesystem, network or package installation.",
             "evaluation": "Submit independent candidates, compare paired median timings. Development and validation use different fixed shapes/seeds, both contain zero/tiny rows.",
+            "layout_study": "For longer research use layout_development and layout_validation: eighteen larger workloads per suite, contiguous, column-strided and transposed inputs, 15 alternating paired repetitions. Validation shapes and seeds differ. Input contract unchanged. No timing guarantees.",
             "memory_policy": "记忆是模型基于本机测量的待审核结论。限定输入、dtype、环境；未测因果和带宽不能写成事实。成功、失败、反例均可保存；不以耗时长作为唯一理由。",
             "memory": [json.loads(p.read_text()) for p in sorted(
                 workspace.glob("memory-*.json"), key=lambda p: p.stat().st_mtime)[-8:]],
             "latest": read_json(workspace / "latest.json"),
         }
 
-    def benchmark_kernel(code: str, reason: str, suite: Literal["development", "validation"] = "development") -> dict:
+    def benchmark_kernel(code: str, reason: str, suite: Literal["development", "validation", "layout_development", "layout_validation"] = "development") -> dict:
         """Save and evaluate a new normalize(x) implementation. Use validation to check the final code on different shapes."""
         try:
             validate_code(code)

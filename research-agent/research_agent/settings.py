@@ -17,7 +17,8 @@ from research_agent.paths import DATA_ROOT
 ROOT = DATA_ROOT
 SETTINGS_PATH = Path.home() / "Library/Application Support/LuLu Research/settings.json"
 DEFAULTS = {
-    "model": {"base_url": "https://api.deepseek.com", "name": "deepseek-flash", "prices": None},
+    "model": {"base_url": "https://api.deepseek.com", "name": "deepseek-flash", "prices": None,
+              "review_name": "deepseek-v4-pro", "review_prices": None},
     "search": {"base_url": "https://api.deepseek.com/v1/tools"},
 }
 lock = RLock()
@@ -38,7 +39,11 @@ def load_settings():
     with lock:
         if not SETTINGS_PATH.exists():
             return copy.deepcopy(DEFAULTS)
-        return json.loads(SETTINGS_PATH.read_text())
+        config = json.loads(SETTINGS_PATH.read_text())
+        config["model"].setdefault("review_name", "deepseek-v4-pro" if
+            urlsplit(config["model"]["base_url"]).hostname == "api.deepseek.com" else "")
+        config["model"].setdefault("review_prices", None)
+        return config
 
 
 def environment_key(url):
@@ -101,6 +106,17 @@ def save_settings(payload):
                 or any(type(v) not in (float, int) or not math.isfinite(v) or v < 0 for v in prices.values())):
             raise ValueError("自定义单价需完整填写输入、输出、缓存命中价格（元 / 百万 token）。")
     config["model"]["prices"] = prices
+    review_name = payload["model"].get("review_name", "")
+    if not isinstance(review_name, str) or len(review_name) > 150:
+        raise ValueError("复核模型 ID 最多 150 字，留空则只使用日常模型。")
+    review_prices = payload["model"].get("review_prices")
+    if review_prices is not None and (not isinstance(review_prices, dict)
+            or set(review_prices) != {"input", "output", "cache_read"}
+            or any(type(v) not in (float, int) or not math.isfinite(v) or v < 0 for v in review_prices.values())):
+        raise ValueError("请完整填写复核模型的三项人民币单价，或全部留空。")
+    if review_name.strip() == name.strip() and review_prices is not None and review_prices != prices:
+        raise ValueError("同一模型不能设置两组不同单价。")
+    config["model"].update(review_name=review_name.strip(), review_prices=review_prices)
     with lock:
         vault = keychain()
         # Validate everything before writing credentials. Blank means retain the credential for this exact endpoint.
@@ -129,14 +145,16 @@ def runtime_settings():
 def pricing_for(config):
     pricing = copy.deepcopy(PRICING)
     model = config["model"]
-    if model.get("prices") is not None:
-        pricing["models_per_million"] = {model["name"]: model["prices"]}
-        pricing["basis"] = "模型费用按用户配置单价估算，不代表实际扣款"
-    elif urlsplit(model["base_url"]).hostname != "api.deepseek.com":
+    if urlsplit(model["base_url"]).hostname != "api.deepseek.com":
         pricing["models_per_million"] = {}
         pricing["basis"] = "第三方模型单价未配置，模型费用未计量"
+    if model.get("prices") is not None:
+        pricing["models_per_million"][model["name"]] = model["prices"]
+        pricing["basis"] = "模型费用按配置单价估算，不代表实际扣款"
     if config["search"]["base_url"] != DEFAULTS["search"]["base_url"]:
         pricing.update(search_per_request=None, fetch_per_request=None)
     pricing["model_endpoint"] = model["base_url"]
+    if model.get("review_name") and model.get("review_prices") is not None:
+        pricing["models_per_million"][model["review_name"]] = model["review_prices"]
     pricing["search_endpoint"] = config["search"]["base_url"]
     return pricing
