@@ -1,5 +1,5 @@
 <div align=center>
-<img src=desktop/assets/lulu.png width=92 alt=LuLu>
+<img src=../../desktop/assets/lulu.png width=92 alt=LuLu>
 
 # LuLu Research
 
@@ -7,15 +7,15 @@
 
 Macで動く研究Agentワークベンチ。問いを立て、実験を確かめ、同じ会話で研究を続けられます。
 
-[中文](README.md) · [English](README.en.md) · [한국어](README.ko.md) · **日本語**
+[中文](../../README.md) · [English](README.en.md) · [한국어](README.ko.md) · **日本語**
 
-[![MIT](https://img.shields.io/badge/license-MIT-496f60)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.12-667d8d)](research-agent/pyproject.toml)
-[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-9a866d)](desktop)
+[![MIT](https://img.shields.io/badge/license-MIT-496f60)](../../LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12-667d8d)](../../research-agent/pyproject.toml)
+[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-9a866d)](../../desktop)
 
 </div>
 
-![LuLuの研究会話と実験詳細](web/assets/workbench.png)
+![LuLuの研究会話と実験詳細](../../web/assets/workbench.png)
 
 ## 問いから根拠へ
 
@@ -83,7 +83,7 @@ LuLuは開発中のローカルワークベンチです。モデルと検索に�
 
 費用は判明している単価による推定であり、実際の請求額や厳密な支出上限ではありません。GPU時間は未計測です。SSH実行、クラウド同期、自動モデルルーティング、クロスプラットフォームのサンドボックスは未実装です。
 
-[中国語の開発と設定ガイド](research-agent/docs/development.md) · [バックエンドのツール](research-agent/research_agent/research/README.md)
+[中国語の開発と設定ガイド](../../research-agent/docs/development.md) · [バックエンドのツール](../../research-agent/research_agent/research/README.md)
 
 ## 一緒に開発する
 
@@ -97,4 +97,4 @@ LuLuは開発中のローカルワークベンチです。モデルと検索に�
 
 LuLuは[LangChain Deep Agents](https://github.com/langchain-ai/deepagents)を基に改修しています。READMEの構成は[GPT Researcher](https://github.com/assafelovic/gpt-researcher)と[DeerFlow](https://github.com/bytedance/deer-flow)を参考にしました。
 
-上流の著作権表示を保持し、[MITライセンス](LICENSE)で公開しています。
+上流の著作権表示を保持し、[MITライセンス](../../LICENSE)で公開しています。

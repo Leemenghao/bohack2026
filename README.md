@@ -7,7 +7,7 @@
 
 一个在 Mac 上工作的科研 Agent 工作台。提出问题，观察实验，在同一会话里继续研究。
 
-**中文** · [English](README.en.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+**中文** · [English](docs/i18n/README.en.md) · [한국어](docs/i18n/README.ko.md) · [日本語](docs/i18n/README.ja.md)
 
 [![MIT](https://img.shields.io/badge/license-MIT-496f60)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.12-667d8d)](research-agent/pyproject.toml)

@@ -1,5 +1,5 @@
 <div align=center>
-<img src=desktop/assets/lulu.png width=92 alt=LuLu>
+<img src=../../desktop/assets/lulu.png width=92 alt=LuLu>
 
 # LuLu Research
 
@@ -7,15 +7,15 @@
 
 A research agent workbench for Mac. Ask a question, inspect experiments, and keep working in the same conversation.
 
-[中文](README.md) · **English** · [한국어](README.ko.md) · [日本語](README.ja.md)
+[中文](../../README.md) · **English** · [한국어](README.ko.md) · [日本語](README.ja.md)
 
-[![MIT](https://img.shields.io/badge/license-MIT-496f60)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.12-667d8d)](research-agent/pyproject.toml)
-[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-9a866d)](desktop)
+[![MIT](https://img.shields.io/badge/license-MIT-496f60)](../../LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12-667d8d)](../../research-agent/pyproject.toml)
+[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon-9a866d)](../../desktop)
 
 </div>
 
-![Research conversation and experiment details in LuLu](web/assets/workbench.png)
+![Research conversation and experiment details in LuLu](../../web/assets/workbench.png)
 
 ## From questions to evidence
 
@@ -83,7 +83,7 @@ LuLu is an evolving local workbench. Models and search still use online APIs. Ge
 
 Costs cover known prices and are estimates, not invoices or hard spending caps. GPU time is not measured. SSH execution, cloud synchronization, automatic model routing, and cross-platform sandboxes are not implemented.
 
-[Development and configuration guide in Chinese](research-agent/docs/development.md) · [Backend tools](research-agent/research_agent/research/README.md)
+[Development and configuration guide in Chinese](../../research-agent/docs/development.md) · [Backend tools](../../research-agent/research_agent/research/README.md)
 
 ## Develop together
 
@@ -97,4 +97,4 @@ Make focused commits on feature branches, run checks, and open a PR to main. Avo
 
 LuLu is adapted from [LangChain Deep Agents](https://github.com/langchain-ai/deepagents). The README structure takes inspiration from [GPT Researcher](https://github.com/assafelovic/gpt-researcher) and [DeerFlow](https://github.com/bytedance/deer-flow).
 
-Released under the [MIT license](LICENSE), with upstream copyright notices retained.
+Released under the [MIT license](../../LICENSE), with upstream copyright notices retained.
