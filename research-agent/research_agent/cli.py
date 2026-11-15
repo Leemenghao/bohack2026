@@ -1,7 +1,6 @@
 import argparse
 import json
 import math
-from pathlib import Path
 from threading import Lock
 from typing import Literal
 from uuid import uuid4
@@ -21,12 +20,13 @@ from research_agent.runview import RUN_ID
 from research_agent.budget import Budget
 from research_agent.memory import load_previous, memory_block
 from research_agent.settings import runtime_settings, pricing_for
+from research_agent.paths import DATA_ROOT
 from langchain.agents.middleware import ModelCallLimitMiddleware, ToolCallLimitMiddleware, wrap_model_call, wrap_tool_call
 from langchain.agents.middleware.model_call_limit import ModelCallLimitExceededError
 from langchain_core.messages import SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = DATA_ROOT
 MAX_SEARCHES = 2
 MAX_FETCHES = 2
 INSTRUCTIONS = """

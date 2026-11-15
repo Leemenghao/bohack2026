@@ -64,7 +64,7 @@ uv pip install -e ./research-agent
 bash desktop/build.sh
 ```
 
-저장소 루트의 LuLu Research.app을 엽니다. 현재 앱은 이 저장소와 Python 환경에 의존하며 독립 배포용 설치 패키지는 아닙니다.
+저장소 루트의 LuLu Research.app은 개발용 실행기입니다. 독립 설치 패키지는 `.venv/bin/python desktop/package.py`로 빌드합니다. `desktop/dist/`의 DMG는 Python과 의존성을 포함하며 Apple Silicon과 macOS 26 이상을 지원합니다. 키, 연구 기록, 모델 가중치는 포함하지 않습니다. [중국어 패키징 안내](../../desktop/README.md)를 참고하세요.
 
 ## 결과마다 정해진 자리
 

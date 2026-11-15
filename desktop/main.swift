@@ -149,10 +149,23 @@ final class DesktopApp: NSObject, NSApplicationDelegate, WKNavigationDelegate, W
     }
 
     private func startBackend() {
-        let root = Bundle.main.bundleURL.deletingLastPathComponent()
-        let python = root.appendingPathComponent(".venv/bin/python")
+        let resources = Bundle.main.resourceURL!
+        let bundledPython = resources.appendingPathComponent("runtime/bin/python3")
+        let packaged = FileManager.default.isExecutableFile(atPath: bundledPython.path)
+        let project = packaged ? resources.appendingPathComponent("project") : Bundle.main.bundleURL.deletingLastPathComponent()
+        let root = packaged
+            ? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("LuLu Research/data")
+            : project
+        let python = packaged ? bundledPython : root.appendingPathComponent(".venv/bin/python")
         guard FileManager.default.isExecutableFile(atPath: python.path) else {
             showMessage("找不到项目的 Python 环境。请把应用放在仓库根目录，并按 README 安装依赖。")
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,
+                                                     attributes: [.posixPermissions: 0o700])
+        } catch {
+            showMessage("无法创建研究数据目录，请检查当前用户的文件权限。")
             return
         }
 
@@ -161,6 +174,14 @@ final class DesktopApp: NSObject, NSApplicationDelegate, WKNavigationDelegate, W
         process.executableURL = python
         process.currentDirectoryURL = root
         process.arguments = ["-m", "research_agent.web_server", "--port", "0", "--desktop"]
+        var environment = ProcessInfo.processInfo.environment
+        environment.removeValue(forKey: "PYTHONHOME")
+        environment["PYTHONPATH"] = project.appendingPathComponent("research-agent").path
+        environment["PYTHONNOUSERSITE"] = "1"
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        if packaged { environment["LULU_DATA_ROOT"] = root.path }
+        else { environment.removeValue(forKey: "LULU_DATA_ROOT") }
+        process.environment = environment
         process.standardOutput = pipe
         process.terminationHandler = { [weak self] process in
             DispatchQueue.main.async {

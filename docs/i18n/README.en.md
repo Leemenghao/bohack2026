@@ -64,7 +64,7 @@ For a standalone window, install Xcode Command Line Tools and build the app.
 bash desktop/build.sh
 ```
 
-Open LuLu Research.app in the repository root. It still depends on this checkout and Python environment, so it is not yet a self-contained distribution.
+Open LuLu Research.app in the repository root for the development launcher. To build a self-contained installer, run `.venv/bin/python desktop/package.py`. The DMG in `desktop/dist/` bundles Python and dependencies for Apple Silicon with macOS 26 or later. Keys, research history, and model weights are excluded. See the [packaging guide in Chinese](../../desktop/README.md).
 
 ## A place for every result
 

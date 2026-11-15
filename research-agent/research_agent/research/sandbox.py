@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from research_agent.research.kernel import session_workspace
+from research_agent.paths import DATA_ROOT, PROJECT_ROOT
 
 
 def sandbox_command(command, root, run_dir, output):
@@ -15,7 +16,7 @@ def sandbox_command(command, root, run_dir, output):
     temporary.mkdir(exist_ok=True)
     read_roots = ["/System", "/usr", "/bin", "/sbin", "/Library/Developer", "/Library/Apple",
                   str(Path(sys.base_prefix).resolve()), str((root / ".venv").resolve()),
-                  str((root / "research-agent").resolve()), str(run_dir.resolve()), str(workspace)]
+                  str((PROJECT_ROOT / "research-agent").resolve()), str(run_dir.resolve()), str(workspace)]
     quote = lambda path: json.dumps(str(path), ensure_ascii=False)
     profile = "\n".join([
         "(version 1)", "(deny default)", "(allow process-exec process-fork)",
@@ -31,7 +32,8 @@ def sandbox_command(command, root, run_dir, output):
     profile_path.write_text(profile)
     environment = {"PATH": "/usr/bin:/bin", "HOME": str(workspace), "TMPDIR": str(temporary),
                    "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1",
-                   "OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1"}
+                   "OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1",
+                   "PYTHONPATH": str(PROJECT_ROOT / "research-agent")}
     return ["/usr/bin/sandbox-exec", "-f", str(profile_path), *command], workspace, environment
 
 
@@ -46,7 +48,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not RUN_ID.fullmatch(args.run_id) or len(args.experiment_id) != 8 or any(c not in "0123456789abcdef" for c in args.experiment_id):
         parser.error("Invalid record ID")
-    root = Path(__file__).resolve().parents[3]
+    root = DATA_ROOT
     folder = root / "runs" / args.run_id
     record = json.loads((folder / f"experiment-{args.experiment_id}.json").read_text())
     task = record["task"]

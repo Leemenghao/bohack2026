@@ -64,7 +64,7 @@ uv pip install -e ./research-agent
 bash desktop/build.sh
 ```
 
-ルートに生成されたLuLu Research.appを開きます。現在のアプリはこのリポジトリとPython環境に依存しており、単独配布用のインストーラーではありません。
+ルートのLuLu Research.appは開発用ランチャーです。独立したインストーラーは`.venv/bin/python desktop/package.py`でビルドします。`desktop/dist/`のDMGにはPythonと依存関係が含まれ、Apple SiliconとmacOS 26以降に対応します。キー、研究履歴、モデルの重みは含みません。[中国語のパッケージ作成ガイド](../../desktop/README.md)も参照してください。
 
 ## 結果を迷わず探せるように
 

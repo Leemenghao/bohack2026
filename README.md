@@ -68,7 +68,7 @@ uv pip install -e ./research-agent
 bash desktop/build.sh
 ```
 
-打开仓库根目录生成的 LuLu Research.app。当前应用依赖这个检出目录与 Python 环境，尚不是独立分发安装包。
+打开仓库根目录生成的 LuLu Research.app。此命令生成依赖仓库的开发版窗口。需要独立安装包时，运行 `.venv/bin/python desktop/package.py`，DMG 会输出到 `desktop/dist/`。安装版内置 Python 与依赖，适用于 Apple Silicon、macOS 26 及以上，不包含密钥、历史记录或模型权重。详见 [打包说明](desktop/README.md)。
 
 ## 清楚地保存每一步
 

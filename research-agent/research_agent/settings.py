@@ -12,8 +12,9 @@ from urllib.parse import urlsplit
 from dotenv import dotenv_values
 
 from research_agent.research.ledger import PRICING
+from research_agent.paths import DATA_ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = DATA_ROOT
 SETTINGS_PATH = Path.home() / "Library/Application Support/LuLu Research/settings.json"
 DEFAULTS = {
     "model": {"base_url": "https://api.deepseek.com", "name": "deepseek-flash", "prices": None},

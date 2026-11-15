@@ -5,7 +5,6 @@ import os
 import re
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from threading import Event, Lock, Thread
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -13,8 +12,9 @@ from uuid import uuid4
 from research_agent.archive import build_archive
 from research_agent.conversation_store import ConversationStore
 from research_agent.runview import RUN_ID, continuation_context, load_run, save_run, timestamp
+from research_agent.paths import DATA_ROOT, WEB_ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = DATA_ROOT
 DEFAULT_TASK = "prefix_cache"
 
 ASSETS = {
@@ -90,7 +90,7 @@ class Handler(BaseHTTPRequestHandler):
         path = url.path
         if path in ASSETS:
             filename, content_type = ASSETS[path]
-            self.send_data(200, (ROOT / "web" / filename).read_bytes(), content_type)
+            self.send_data(200, (WEB_ROOT / filename).read_bytes(), content_type)
             return
 
         if path.startswith("/api/") and not self.is_local_request():

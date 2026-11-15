@@ -12,6 +12,7 @@ from typing import Literal
 from uuid import uuid4
 
 from research_agent.research.ledger import RunStopped
+from research_agent.paths import replay_command
 
 CHECKPOINT_PATH = "models/Qwen3-0.6B-4bit"
 BENCHMARK_LOCK = Lock()
@@ -101,7 +102,7 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
         if task in ("kernel", "python"):
             source = run_dir / f"candidate-{experiment_id}.py"
             source.write_text(configuration["code"])
-            command = f".venv/bin/python -m research_agent.research.sandbox {run_dir.name} {experiment_id}"
+            command = replay_command("research_agent.research.sandbox", run_dir.name, experiment_id)
         try:
             worker_config = {"source": str(source.resolve())} if task == "python" else configuration
             command_args = [sys.executable, "-m", "research_agent.research.worker", task, str(output), json.dumps(worker_config)]
@@ -155,7 +156,7 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
 
     def benchmark_prefix_cache(workload: Literal["shared", "different"], reason: str, cache_first: bool = False) -> dict:
         """Compare cache off and on on shared or different prefixes. Explain the experiment choice."""
-        command = f".venv/bin/python -m research_agent.benchmark.prefix_cache {CHECKPOINT_PATH} --workload {workload}"
+        command = replay_command("research_agent.benchmark.prefix_cache", root / CHECKPOINT_PATH, "--workload", workload)
         if cache_first:
             command += " --cache-first"
 
@@ -164,7 +165,7 @@ def make_experiment(task, root, run_dir, on_event=None, *, ledger, timeout_secon
 
     def benchmark_classification(reason: str, split_seed: Literal[42, 43, 44] = 42) -> dict:
         """Compare unweighted and balanced logistic regression using one stratified split."""
-        command = f".venv/bin/python -m research_agent.benchmark.imbalanced_classification --split-seed {split_seed}"
+        command = replay_command("research_agent.benchmark.imbalanced_classification", "--split-seed", split_seed)
         return record({"split_seed": split_seed}, reason, {"split_seed": split_seed}, command)
 
     if task == "kernel":
